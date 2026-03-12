@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { checkWord } from "@api/game";
 import styles from "./CenterPlay.module.css";
 import Timer from "../Timer";
@@ -28,10 +28,11 @@ const CenterPlay = ({
 
   const isTimeOver = state !== "PLAY" || timeLeftMs <= 0;
 
-  const showAlert = (msg: string) => {
+  const showAlert = useCallback((msg: string) => {
     setAlert(msg);
-    setTimeout(() => setAlert(null), 1500);
-  };
+    const timer = setTimeout(() => setAlert(null), 1500);
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleSubmit = () => {
     if (isTimeOver) return;
@@ -43,7 +44,7 @@ const CenterPlay = ({
     }
 
     if (trimmed.length !== 2) {
-      showAlert("두 단어만 입력하세요.");
+      showAlert("두 글자만 입력 가능합니다.");
       setWord("");
       return;
     }
@@ -53,10 +54,11 @@ const CenterPlay = ({
   };
 
   useEffect(() => {
-    if (lastResult && !lastResult.valid && lastResult.reason) {
-      showAlert(lastResult.reason);
+    if (!lastResult) return;
+    if (!lastResult.valid) {
+      showAlert(lastResult.reason || "올바르지 않은 단어입니다.");
     }
-  }, [lastResult]);
+  }, [lastResult, showAlert]);
 
   return (
     <div className={styles.centerWrapper}>
