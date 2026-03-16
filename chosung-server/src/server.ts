@@ -181,7 +181,8 @@ const startCountdown = (
 
   io.to(roomId).emit("all-ready-notice", { trigger });
 
-  setTimeout(() => {
+  room.readyNoticeTimer = setTimeout(() => {
+    room.readyNoticeTimer = undefined;
     io.to(roomId).emit("countdown-start", { seconds: 3 });
 
     room.startTimer = setTimeout(() => {
@@ -429,10 +430,6 @@ io.on("connection", (socket: Socket) => {
     const player = room.players.get(socket.id);
 
     if (player?.isOwner && room.status === "COUNTDOWN") {
-      console.log(
-        `[CANCEL START] 방장(${player.nickname})이 시작을 취소했습니다.`,
-      );
-
       if (room.startTimer) {
         clearTimeout(room.startTimer);
         room.startTimer = undefined;
@@ -509,7 +506,7 @@ io.on("connection", (socket: Socket) => {
 
   /*=====================================================
         
-       이탈, 연결끊김 시
+       이탈, 연결끊김, 게임종료
 
 =======================================================*/
 
@@ -525,11 +522,23 @@ io.on("connection", (socket: Socket) => {
 
     if (!leaver) return;
 
-    //카툰트다운중 이탈 -> 취소
-    if (room.status === "COUNTDOWN" && room.startTimer) {
-      clearTimeout(room.startTimer);
-      room.startTimer = undefined;
+    /*-------카툰트다운중 이탈 ->카툰트다운 취소 -----------*/
+
+    if (room.status === "COUNTDOWN") {
+      if (room.readyNoticeTimer) {
+        clearTimeout(room.readyNoticeTimer);
+        room.readyNoticeTimer = undefined;
+      }
+
+      if (room.startTimer) {
+        clearTimeout(room.startTimer);
+        room.startTimer = undefined;
+      }
       room.status = "WAIT";
+
+      room.players.forEach((p) => (p.isReady = false));
+
+      io.to(roomId).emit("room-wait");
     }
 
     if (room.status === "WAIT") {
@@ -575,6 +584,8 @@ io.on("connection", (socket: Socket) => {
         };
       });
 
+      /*--------게임종료-----------*/
+
       io.to(roomId).emit("game-end", {
         words: Array.from(room.usedWords),
         scores: finalScore,
@@ -582,7 +593,7 @@ io.on("connection", (socket: Socket) => {
 
       room.players.delete(leaverId);
     }
-    // 방이 비었으면 삭제
+
     if (room.players.size === 0) {
       rooms.delete(roomId);
       await Chat.deleteMany({ roomId });
