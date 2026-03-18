@@ -318,6 +318,11 @@ io.on("connection", (socket: Socket) => {
       status: room.status,
     });
     socket.emit("set-my-id", { you: socket.id, yourScore: 0 });
+
+    socket.emit("settings-updated", {
+      timeLimit: room.timeLimit,
+      usedTimeChangeCount: room.usedTimeChangeCount,
+    });
   });
 
   /*-------------------WaitingRoom 채팅-------------------------------*/
