@@ -117,10 +117,16 @@ const getRoomBySocket = (socketId: string) => {
 ====================================================================*/
 
 const startGame = (roomId: string, room: Room) => {
-  if (room.status === "PLAY") return;
+  if (room.status === "PLAY") {
+    console.log(
+      `[WARN] 방 ${roomId}는 이미 게임 중입니다. 중복 실행을 차단합니다.`,
+    );
+    return;
+  }
+
+  console.log(`[DEBUG] 게임 시작 시도: 방ID ${roomId}`);
 
   room.status = "PLAY";
-  room.startTimer = undefined;
   room.chosungPair = getRandomChosungPair();
   room.usedWords = new Set();
 
@@ -128,27 +134,37 @@ const startGame = (roomId: string, room: Room) => {
     player.score = 0;
   });
 
+  if (room.gameDurationTimer) {
+    clearTimeout(room.gameDurationTimer);
+    room.gameDurationTimer = undefined;
+  }
+
   const limit = room.timeLimit || 60;
   const durationMs = limit * 1000;
   const bufferTime = 1500;
-  const endAt = Date.now() + durationMs + bufferTime;
+  room.endAt = Date.now() + durationMs + bufferTime;
 
-  room.endAt = endAt;
   io.to(roomId).emit("game-start", {
     chosungPair: room.chosungPair,
-    endAt,
+    endAt: room.endAt,
   });
 
-  if (room.gameDurationTimer) clearTimeout(room.gameDurationTimer);
+  console.log(`[DEBUG] ${room.timeLimit}초 타이머 설정됨`);
 
   room.gameDurationTimer = setTimeout(() => {
-    if (room.status !== "PLAY") return;
+    const currentRoom = rooms.get(roomId);
+    if (!currentRoom || currentRoom.status !== "PLAY") {
+      console.log(
+        `[TIMER_CANCEL] 방이 없거나 상태가 변경되어 종료 로직을 취소함: ${roomId}`,
+      );
+      return;
+    }
 
-    room.status = "END";
+    console.log(`[TIMER_EXPIRED] 시간 종료! 결과 집계 시작: ${roomId}`);
+    currentRoom.status = "END";
+    currentRoom.gameDurationTimer = undefined;
 
-    room.gameDurationTimer = undefined;
-
-    const finalScore = Array.from(room.players.values()).map((p) => ({
+    const finalScore = Array.from(currentRoom.players.values()).map((p) => ({
       nickname: p.nickname,
       score: p.score,
       socketId: p.socketId,
@@ -156,7 +172,7 @@ const startGame = (roomId: string, room: Room) => {
     }));
 
     io.to(roomId).emit("game-end", {
-      words: Array.from(room.usedWords),
+      words: Array.from(currentRoom.usedWords),
       scores: finalScore,
     });
   }, durationMs + bufferTime);
@@ -170,11 +186,12 @@ const startGame = (roomId: string, room: Room) => {
 
 const startCountdown = (
   roomId: string,
-  room: any,
+  room: Room,
   trigger: "FORCE" | "ALL_READY",
 ) => {
-  if (room.status === "COUNTDOWN") return;
+  if (room.status === "COUNTDOWN" || room.status === "PLAY") return;
 
+  if (room.readyNoticeTimer) clearTimeout(room.readyNoticeTimer);
   if (room.startTimer) clearTimeout(room.startTimer);
 
   room.status = "COUNTDOWN";
@@ -183,6 +200,7 @@ const startCountdown = (
 
   room.readyNoticeTimer = setTimeout(() => {
     room.readyNoticeTimer = undefined;
+
     io.to(roomId).emit("countdown-start", { seconds: 3 });
 
     room.startTimer = setTimeout(() => {
@@ -224,7 +242,6 @@ io.on("connection", (socket: Socket) => {
 
     const taken = isNicknameTaken(trimmedNickname);
 
-    // 3. 결과 반환
     socket.emit("nickname-check-result", {
       available: !taken,
       nickname: trimmedNickname,
@@ -234,9 +251,106 @@ io.on("connection", (socket: Socket) => {
     });
   });
 
+  /*=====================================================
+        
+       이탈, 연결끊김, 게임종료
+
+=======================================================*/
+
+  const handleLeaveRoom = async (socket: Socket) => {
+    const resultData = getRoomBySocket(socket.id);
+    if (!resultData) return;
+
+    const { roomId, room } = resultData;
+    const leaverId = socket.id;
+    const leaver = room.players.get(leaverId);
+
+    if (!leaver) return;
+
+    room.players.delete(leaverId);
+
+    if (room.status === "COUNTDOWN") {
+      if (room.readyNoticeTimer) {
+        clearTimeout(room.readyNoticeTimer);
+        room.readyNoticeTimer = undefined;
+      }
+      if (room.startTimer) {
+        clearTimeout(room.startTimer);
+        room.startTimer = undefined;
+      }
+      room.status = "WAIT";
+      room.players.forEach((p) => (p.isReady = false));
+      io.to(roomId).emit("room-wait");
+    }
+
+    if (leaver.isOwner && room.players.size > 0) {
+      const nextOwner = Array.from(room.players.values())[0];
+      if (nextOwner) nextOwner.isOwner = true;
+    }
+
+    if (room.status === "WAIT" || room.status === "END") {
+      const playerSnapshot = Array.from(room.players.values()).map((p) => ({
+        socketId: p.socketId,
+        nickname: p.nickname,
+        isOwner: p.isOwner,
+        isReady: p.isReady,
+        score: p.score,
+      }));
+      io.to(roomId).emit("room-updated", {
+        players: playerSnapshot,
+        status: room.status,
+      });
+    } else if (room.status === "PLAY") {
+      console.log(
+        `[STAY_ALIVE] 유저 ${leaver.nickname} 이탈함. 게임은 계속됩니다.`,
+      );
+
+      io.to(roomId).emit("receive-chat", {
+        socketId: "system",
+        nickname: "",
+        message: `${leaver.nickname}님이 나갔지만 게임은 계속됩니다!`,
+        type: "system",
+      });
+    }
+
+    if (room.players.size === 0) {
+      if (room.gameDurationTimer) {
+        clearTimeout(room.gameDurationTimer);
+        room.gameDurationTimer = undefined;
+      }
+      rooms.delete(roomId);
+      await Chat.deleteMany({ roomId });
+      console.log(`[DELETE] 빈 방 ${roomId} 완전 삭제 완료`);
+    }
+  };
+  socket.on("leave-room", () => handleLeaveRoom(socket));
+  socket.on("disconnect", (reason) => {
+    console.log(`[EXIT] 유저 퇴장함: ${socket.id}, 사유: ${reason}`);
+    handleLeaveRoom(socket);
+  });
+
   socket.on("join-room", async (data) => {
     const already = getRoomBySocket(socket.id);
-    if (already) return;
+    if (already) {
+      const { roomId: oldId, room: oldRoom } = already;
+
+      if (oldRoom.status === "PLAY") {
+        console.log(
+          `[KEEP_ALIVE] 게임 진행 중인 방이므로 삭제를 건너뜁니다: ${oldId}`,
+        );
+      } else {
+        oldRoom.players.delete(socket.id);
+        socket.leave(oldId);
+
+        if (oldRoom.players.size === 0) {
+          if (oldRoom.startTimer) clearTimeout(oldRoom.startTimer);
+          if (oldRoom.readyNoticeTimer) clearTimeout(oldRoom.readyNoticeTimer);
+
+          rooms.delete(oldId);
+          console.log(`[ROOM_DELETE] 빈 대기방 삭제 완료: ${oldId}`);
+        }
+      }
+    }
 
     let entry = [...rooms.entries()].find(
       ([_, room]) => room.status === "WAIT" && room.players.size < 2,
@@ -254,7 +368,6 @@ io.on("connection", (socket: Socket) => {
 
     if (!entry) {
       const created = createRoom();
-
       roomId = created.roomId;
       room = created.room;
     } else {
@@ -275,19 +388,15 @@ io.on("connection", (socket: Socket) => {
     socket.join(roomId);
 
     try {
-      const history = await Chat.find({
-        roomId,
-      })
+      const history = await Chat.find({ roomId })
         .sort({ createdAt: 1 })
         .limit(50);
-
       const mappedHistory = history.map((chat) => ({
         socketId: chat.sender === "system" ? "system" : chat.sender,
         nickname: chat.sender,
         message: chat.message,
         type: chat.type,
       }));
-
       socket.emit("load-history", mappedHistory);
 
       io.to(roomId).emit("receive-chat", {
@@ -297,28 +406,26 @@ io.on("connection", (socket: Socket) => {
         type: "system",
       });
     } catch (err) {
-      console.error("DB저장 실패:", err);
+      console.error("DB 로드 실패:", err);
       socket.emit("load-history", []);
     }
 
     const playerSnapshot: PlayerSnapshot[] = Array.from(
       room.players.values(),
-    ).map((player) => {
-      return {
-        socketId: player.socketId,
-        nickname: player.nickname,
-        isOwner: player.isOwner,
-        isReady: player.isReady,
-        score: player.score,
-      };
-    });
+    ).map((player) => ({
+      socketId: player.socketId,
+      nickname: player.nickname,
+      isOwner: player.isOwner,
+      isReady: player.isReady,
+      score: player.score,
+    }));
 
     io.to(roomId).emit("room-updated", {
       players: playerSnapshot,
       status: room.status,
     });
-    socket.emit("set-my-id", { you: socket.id, yourScore: 0 });
 
+    socket.emit("set-my-id", { you: socket.id, yourScore: 0 });
     socket.emit("settings-updated", {
       timeLimit: room.timeLimit,
       usedTimeChangeCount: room.usedTimeChangeCount,
@@ -447,11 +554,16 @@ io.on("connection", (socket: Socket) => {
   /*---------초성 보내기---------------*/
 
   socket.on("submit-word", async (data: { word: string }) => {
-    const word = data.word;
     const resultData = getRoomBySocket(socket.id);
-    if (!resultData || resultData.room.status !== "PLAY") return;
+
+    if (!resultData) {
+      console.error(`[ERROR] 방을 찾을 수 없는 유저: ${socket.id}`);
+      return;
+    }
 
     const { room, roomId } = resultData;
+    if (room.status !== "PLAY") return;
+    const word = data.word.trim();
     if (room.endAt && Date.now() > room.endAt) return;
     const trimmed = word.trim();
 
@@ -506,103 +618,6 @@ io.on("connection", (socket: Socket) => {
         reason: result.reason,
         senderId: socket.id,
       });
-    }
-  });
-
-  /*=====================================================
-        
-       이탈, 연결끊김, 게임종료
-
-=======================================================*/
-
-  socket.on("disconnect", async (reason) => {
-    console.log(`[EXIT] 유저 퇴장함: ${socket.id}, 사유: ${reason}`);
-
-    const resultData = getRoomBySocket(socket.id);
-    if (!resultData) return;
-
-    const { roomId, room } = resultData;
-    const leaverId = socket.id;
-    const leaver = room.players.get(leaverId);
-
-    if (!leaver) return;
-
-    /*-------카툰트다운중 이탈 ->카툰트다운 취소 -----------*/
-
-    if (room.status === "COUNTDOWN") {
-      if (room.readyNoticeTimer) {
-        clearTimeout(room.readyNoticeTimer);
-        room.readyNoticeTimer = undefined;
-      }
-
-      if (room.startTimer) {
-        clearTimeout(room.startTimer);
-        room.startTimer = undefined;
-      }
-      room.status = "WAIT";
-
-      room.players.forEach((p) => (p.isReady = false));
-
-      io.to(roomId).emit("room-wait");
-    }
-
-    if (room.status === "WAIT") {
-      room.players.delete(leaverId);
-
-      if (leaver.isOwner && room.players.size > 0) {
-        const nextOwner = Array.from(room.players.values())[0];
-        if (nextOwner) {
-          nextOwner.isOwner = true;
-          nextOwner.isReady = false;
-        }
-      }
-      io.to(roomId).emit("receive-chat", {
-        socketId: "system",
-        nickname: "",
-        message: `${leaver.nickname}님이 퇴장하였습니다.`,
-        type: "system",
-      });
-
-      const playerSnapshot = Array.from(room.players.values()).map((p) => ({
-        socketId: p.socketId,
-        nickname: p.nickname,
-        isOwner: p.isOwner,
-        isReady: p.isReady,
-        score: p.score,
-      }));
-      io.to(roomId).emit("room-updated", {
-        players: playerSnapshot,
-        status: room.status,
-      });
-    } else if (room.status === "PLAY") {
-      /*--------게임중 이탈 -----------*/
-      if (room.gameDurationTimer) clearTimeout(room.gameDurationTimer);
-      room.status = "END";
-
-      const finalScore = Array.from(room.players.values()).map((p) => {
-        const isLeaver = p.socketId === leaverId;
-        return {
-          nickname: isLeaver ? `${p.nickname} (기권)` : p.nickname,
-          score: p.score,
-          socketId: p.socketId,
-          isLeaver: isLeaver,
-        };
-      });
-
-      /*--------게임종료-----------*/
-
-      io.to(roomId).emit("game-end", {
-        words: Array.from(room.usedWords),
-        scores: finalScore,
-      });
-
-      room.players.delete(leaverId);
-    }
-
-    if (room.players.size === 0) {
-      rooms.delete(roomId);
-      await Chat.deleteMany({ roomId });
-      console.log(`[DELETE] 방 ${roomId} 종료 및 채팅 내역 삭제`);
     }
   });
 });

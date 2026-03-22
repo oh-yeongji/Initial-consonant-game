@@ -1,4 +1,5 @@
 import { Socket } from "socket.io-client";
+import { useState, useEffect, useCallback } from "react";
 import { GameEndData } from "@/types/domain/room";
 
 interface UsedWord {
@@ -16,27 +17,40 @@ interface ResultModalProps {
 
 const ResultModal = ({
   socket,
-  scores,
+  scores = [],
   words = [],
   onReset,
 }: ResultModalProps) => {
   const myId = socket?.id;
-  const me = scores.find((s) => s.socketId === myId) || scores[0];
-  const opponent = scores.find((s) => s.socketId !== myId) || scores[1];
+
+  const me = scores?.find((s) => s.socketId === myId) ||
+    scores[0] || {
+      nickname: "Unknown",
+      score: 0,
+      isLeaver: false,
+      socketId: "",
+    };
+
+  const opponent = scores?.find((s) => s.socketId !== myId) ||
+    scores[1] || {
+      nickname: "상대방",
+      score: 0,
+      isLeaver: false,
+      socketId: "",
+    };
 
   const isDraw =
     me &&
     opponent &&
-    !me.isLeaver &&
-    !opponent.isLeaver &&
+    !(me.isLeaver || false) &&
+    !(opponent.isLeaver || false) &&
     me.score === opponent.score;
 
-  const getCardStyle = (p: typeof me, other: typeof opponent) => {
-    if (other.isLeaver) return { width: "60%", height: "240px" };
+  const getCardStyle = (p: any, other: any) => {
+    if (!p || !other) return { width: "45%", height: "200px" };
+    if (other?.isLeaver || false) return { width: "60%", height: "240px" };
     if (isDraw) return { width: "45%", height: "200px" };
-
-    if (other.isLeaver) return { width: "60%", height: "240px" };
-    if (p.isLeaver) return { width: "30%", height: "180px" };
+    if (p?.isLeaver || false) return { width: "30%", height: "180px" };
 
     if (p.score > other.score) {
       return { width: "50%", height: "220px" };
@@ -50,16 +64,35 @@ const ResultModal = ({
     ? words.filter((w) => w.senderId === opponent.socketId)
     : [];
 
-  const handleRetry = () => {
+  const [timeLeft, setTimeLeft] = useState<number>(15);
+
+  const handlePlayAgain = () => {
     if (!socket) return;
-    socket.emit("join-room");
     onReset();
+    socket.emit("join-room", { nickname: me.nickname });
   };
 
-  const handleExit = () => {
-    socket?.disconnect();
-    window.location.href = "/";
-  };
+  const handleExit = useCallback(() => {
+    if (socket) {
+      socket?.emit("leave-room");
+      socket?.disconnect();
+    }
+    window.location.replace("/");
+  }, [socket]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          handleExit();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [handleExit]);
 
   return (
     <div
@@ -73,7 +106,6 @@ const ResultModal = ({
         transform: "translate(-50%, -50%)",
         maxHeight: "85vh",
         background: "#C0C0C0",
-        borderRadius: "0",
         borderTop: "3px solid #ffffff",
         borderLeft: "3px solid #ffffff",
         borderRight: "3px solid #404040",
@@ -88,11 +120,12 @@ const ResultModal = ({
     >
       <div
         style={{
-          background: opponent?.isLeaver
-            ? "#008080"
-            : isDraw
-              ? "#000000"
-              : "#000080",
+          background:
+            opponent?.isLeaver || false
+              ? "#008080"
+              : isDraw
+                ? "#000000"
+                : "#000080",
           color: "#ffffff",
           padding: "5px 10px",
           marginBottom: "15px",
@@ -100,21 +133,23 @@ const ResultModal = ({
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          borderBottom: opponent?.isLeaver ? "2px solid #FFD700" : "none",
+          borderBottom:
+            opponent?.isLeaver || false ? "2px solid #FFD700" : "none",
         }}
       >
         <span
           style={{
-            color: opponent?.isLeaver ? "#FFD700" : "#ffffff",
+            color: opponent?.isLeaver || false ? "#FFD700" : "#ffffff",
             fontWeight: "bold",
           }}
         >
-          {opponent?.isLeaver
+          {opponent?.isLeaver || false
             ? "🏆 [FORFEIT_WIN]: 축하합니다! 당신의 끈기 있는 플레이로 승리를 쟁취했습니다!"
             : isDraw
               ? "⚠ SYSTEM_ERROR: 패자를 찾지 못했습니다!"
               : "Game_Result.exe"}
         </span>
+
         <div style={{ display: "flex", gap: "2px" }}>
           <div
             style={{
@@ -181,7 +216,7 @@ const ResultModal = ({
           <div
             style={{
               background:
-                me.score >= opponent.score && !me.isLeaver
+                me.score >= opponent.score && !(me.isLeaver || false)
                   ? "linear-gradient(90deg, #0000A0 0%, #0000FF 100%)"
                   : "#808080",
               color: "white",
@@ -195,18 +230,17 @@ const ResultModal = ({
             <span>
               {isDraw
                 ? "Co-Winner.exe"
-                : me.score > opponent.score || opponent?.isLeaver
+                : me.score > opponent.score || opponent?.isLeaver || false
                   ? "Winner.exe"
                   : "Loser.log"}
             </span>
             <span>
-              {(() => {
-                if (isDraw || me.score > opponent.score || opponent?.isLeaver) {
-                  return "🏆";
-                }
-
-                return "🥈";
-              })()}
+              {isDraw ||
+              me.score > opponent.score ||
+              opponent?.isLeaver ||
+              false
+                ? "🏆"
+                : "🥈"}
             </span>
           </div>
           <ul
@@ -255,7 +289,7 @@ const ResultModal = ({
               width: getCardStyle(opponent, me).width,
               height: getCardStyle(opponent, me).height,
               padding: "2px",
-              opacity: opponent.isLeaver ? 0.7 : 1,
+              opacity: opponent.isLeaver || false ? 0.7 : 1,
               borderTop: "2px solid #808080",
               borderLeft: "2px solid #808080",
               borderRight: "2px solid #ffffff",
@@ -268,7 +302,8 @@ const ResultModal = ({
             <div
               style={{
                 background:
-                  isDraw || (opponent.score > me.score && !opponent.isLeaver)
+                  isDraw ||
+                  (opponent.score > me.score && !(opponent.isLeaver || false))
                     ? "linear-gradient(90deg, #0000A0 0%, #0000FF 100%)"
                     : "#808080",
                 color: "white",
@@ -285,23 +320,15 @@ const ResultModal = ({
                   : opponent.score > me.score
                     ? "Winner.exe"
                     : "Loser.log"}
-                {opponent.isLeaver && "🏳️"}
+                {(opponent.isLeaver || false) && "🏳️"}
               </span>
               <span>
-                {(() => {
-                  if (
-                    isDraw ||
-                    (opponent.score > me.score && !opponent.isLeaver)
-                  ) {
-                    return "🏆";
-                  }
-
-                  if (opponent.isLeaver) {
-                    return "👎";
-                  }
-
-                  return "🥈";
-                })()}
+                {isDraw ||
+                (opponent.score > me.score && !(opponent.isLeaver || false))
+                  ? "🏆"
+                  : opponent.isLeaver || false
+                    ? "👎"
+                    : "🥈"}
               </span>
             </div>
             <ul
@@ -310,7 +337,7 @@ const ResultModal = ({
                 padding: "10px",
                 margin: 0,
                 textAlign: "center",
-                background: opponent.isLeaver ? "#e0e0e0" : "#fff",
+                background: opponent.isLeaver || false ? "#e0e0e0" : "#fff",
                 flex: 1,
                 display: "flex",
                 flexDirection: "column",
@@ -334,12 +361,14 @@ const ResultModal = ({
                   fontSize: "24px",
                   fontWeight: "bold",
                   marginTop: "10px",
-                  color: opponent.isLeaver
-                    ? "#808080"
-                    : isDraw || opponent.score > me.score
-                      ? "#ff0000"
-                      : "#808080",
-                  textDecoration: opponent.isLeaver ? "line-through" : "none",
+                  color:
+                    opponent.isLeaver || false
+                      ? "#808080"
+                      : isDraw || opponent.score > me.score
+                        ? "#ff0000"
+                        : "#808080",
+                  textDecoration:
+                    opponent.isLeaver || false ? "line-through" : "none",
                   fontFamily: "'Galmuri9', sans-serif",
                 }}
               >
@@ -439,13 +468,14 @@ const ResultModal = ({
             )}
           </ul>
         </div>
+
         <div
           style={{
             flex: 1,
             overflowY: "auto",
             margin: "25px 10px",
             padding: "15px",
-            background: opponent?.isLeaver ? "#ececec" : "#f9fafb",
+            background: opponent?.isLeaver || false ? "#ececec" : "#f9fafb",
             border: "2px solid #808080",
             borderRightColor: "#fff",
             borderBottomColor: "#fff",
@@ -468,7 +498,7 @@ const ResultModal = ({
                   key={idx}
                   style={{
                     marginBottom: "10px",
-                    opacity: opponent?.isLeaver ? 0.6 : 1,
+                    opacity: opponent?.isLeaver || false ? 0.6 : 1,
                     background: "#fff",
                     borderTop: "2px solid #dfdfdf",
                     borderLeft: "2px solid #dfdfdf",
@@ -528,6 +558,12 @@ const ResultModal = ({
       </div>
 
       <div
+        style={{ textAlign: "center", fontFamily: "'Galmuri9', sans-serif" }}
+      >
+        {timeLeft}초 후 시작화면으로 이동합니다.
+      </div>
+
+      <div
         style={{
           display: "flex",
           justifyContent: "center",
@@ -538,7 +574,7 @@ const ResultModal = ({
         }}
       >
         <button
-          onClick={handleRetry}
+          onClick={handlePlayAgain}
           style={{
             padding: "10px 40px",
             fontSize: "18px",
@@ -554,7 +590,7 @@ const ResultModal = ({
             boxShadow: "inset 1px 1px 0px #dfdfdf",
           }}
         >
-          다시하기(R)
+          다시하기(Enter)
         </button>
         <button
           onClick={handleExit}
@@ -572,7 +608,7 @@ const ResultModal = ({
             outline: "1px solid #000",
           }}
         >
-          나가기(X)
+          나가기(Esc)
         </button>
       </div>
     </div>

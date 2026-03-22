@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { socket } from "@/socket/socket";
 import styles from "./GameRoom.module.css";
 import PlayerPanel from "./components/PlayerPanel/PlayerPanel";
@@ -11,6 +11,7 @@ import type {
   PlayerSnapshot,
   GameEndData,
 } from "@/types/domain/room";
+import { log } from "console";
 
 interface GameRoomProps {
   timeLimit: number;
@@ -43,12 +44,49 @@ const GameRoom = ({ timeLimit, initialData }: GameRoomProps) => {
   const [showEndOverlay, setShowEndOverlay] = useState<boolean>(false);
   const [finalData, setFinalData] = useState<GameEndData | null>(null);
 
-  const resetGameStatus = () => {
+  const me = useMemo(
+    () =>
+      roomData.players.find((p) => p.socketId === (roomData.myId || socket.id)),
+    [roomData.players, roomData.myId],
+  );
+
+  const opponent = useMemo(
+    () =>
+      roomData.players.find(
+        (p) => p.socketId !== roomData.myId && roomData.myId !== "",
+      ),
+    [roomData.players, roomData.myId],
+  );
+
+  const resetGameStatus = useCallback(() => {
     setState("WAIT");
     setFinalData(null);
     setMyWords([]);
     setOpponentWords([]);
-  };
+  }, []);
+
+  const onWordValidated = useCallback((res: any) => {
+    console.log("=== 단어 검증 응답 도착 ===");
+    console.log("서버가 보낸 단어:", res.word);
+    console.log("유효 여부(valid):", res.valid);
+    console.log("실패 사유(reason):", res.reason);
+    console.log("서버가 보낸 senderId:", res.senderId);
+    console.log("현재 내 socket.id:", socket.id);
+    console.log("현재 내 roomData.myId:", roomData.myId);
+
+    setLastResult(res);
+    if (!res.valid) return;
+
+    // handleWordResult(res.word, res.senderId);
+    const currentSocketId = socket.id;
+    if (res.senderId === currentSocketId) {
+      console.log("결과: [내 단어장]에 추가함");
+      setMyWords((prev) => [...prev, res.word]);
+    } else {
+      console.log("결과: [상대 단어장]에 추가함");
+      setOpponentWords((prev) => [...prev, res.word]);
+    }
+  }, []);
 
   // 게임시작 문구 나올때
   useEffect(() => {
@@ -98,35 +136,6 @@ const GameRoom = ({ timeLimit, initialData }: GameRoomProps) => {
       setRoomData((prev) => ({ ...prev, myId: you }));
     };
 
-    socket.on("room-updated", onRoomUpdated);
-    socket.on("set-my-id", onSetMyId);
-
-    return () => {
-      socket.off("room-updated", onRoomUpdated);
-      socket.off("set-my-id", onSetMyId);
-    };
-  }, []);
-
-  const me = roomData.players.find(
-    (p) => p.socketId === (roomData.myId || socket.id),
-  );
-  const opponent = roomData.players.find(
-    (p) => p.socketId !== roomData.myId && roomData.myId !== "",
-  );
-
-  const handleWordResult = (word: string, senderId: string) => {
-    if (!word || !senderId || !roomData.myId) return;
-
-    if (senderId === roomData.myId) {
-      setMyWords((prev) => [...prev, word]);
-    } else {
-      setOpponentWords((prev) => [...prev, word]);
-    }
-  };
-
-  ///게임 시작할때
-
-  useEffect(() => {
     const onGameStart = ({ chosungPair, endAt }: any) => {
       setState("PLAY");
       setChosungPair(chosungPair);
@@ -136,32 +145,6 @@ const GameRoom = ({ timeLimit, initialData }: GameRoomProps) => {
       setOpponentWords([]);
     };
 
-    const onWordValidated = (res: any) => {
-      console.log("나의 ID:", roomData.myId);
-      console.log("서버가 보낸 보낸이 ID:", res.senderId);
-
-      setLastResult(res);
-      if (!res.valid) return;
-
-      // handleWordResult(res.word, res.senderId);
-
-      if (res.senderId === socket.id) {
-        setMyWords((prev) => [...prev, res.word]);
-      } else {
-        setOpponentWords((prev) => [...prev, res.word]);
-      }
-    };
-
-    socket.on("game-start", onGameStart);
-    socket.on("word-validated", onWordValidated);
-
-    return () => {
-      socket.off("game-start", onGameStart);
-      socket.off("word-validated", onWordValidated);
-    };
-  }, []);
-
-  useEffect(() => {
     const onGameEnd = (data: GameEndData) => {
       if (!data || !data.scores) return;
 
@@ -182,12 +165,20 @@ const GameRoom = ({ timeLimit, initialData }: GameRoomProps) => {
       }, 1000);
     };
 
+    socket.on("word-validated", onWordValidated);
+    socket.on("room-updated", onRoomUpdated);
+    socket.on("set-my-id", onSetMyId);
+    socket.on("game-start", onGameStart);
     socket.on("game-end", onGameEnd);
 
     return () => {
+      socket.off("room-updated", onRoomUpdated);
+      socket.off("set-my-id", onSetMyId);
+      socket.off("game-start", onGameStart);
+      socket.off("word-validated", onWordValidated);
       socket.off("game-end", onGameEnd);
     };
-  }, [roomData.myId]);
+  }, [onWordValidated]);
 
   return (
     <>
