@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { socket } from "@/socket/socket";
 import styles from "./GameRoom.module.css";
 import PlayerPanel from "./components/PlayerPanel/PlayerPanel";
@@ -11,22 +11,20 @@ import type {
   PlayerSnapshot,
   GameEndData,
 } from "@/types/domain/room";
-import { log } from "console";
 
 interface GameRoomProps {
   timeLimit: number;
   initialData: any;
+  onRestart: () => void;
 }
 
-const GameRoom = ({ timeLimit, initialData }: GameRoomProps) => {
+const GameRoom = ({ timeLimit, initialData, onRestart }: GameRoomProps) => {
   const [roomData, setRoomData] = useState<{
     players: PlayerSnapshot[];
     myId: string;
-    myScore: number;
   }>({
     players: initialData?.players || [],
     myId: initialData?.myId || socket.id || "",
-    myScore: 0,
   });
 
   const [state, setState] = useState<RoomStatus>("PLAY");
@@ -35,153 +33,81 @@ const GameRoom = ({ timeLimit, initialData }: GameRoomProps) => {
     initialData?.chosungPair || ["?", "?"],
   );
   const [lastResult, setLastResult] = useState<any>(null);
-
   const [myWords, setMyWords] = useState<string[]>([]);
   const [opponentWords, setOpponentWords] = useState<string[]>([]);
-
   const [timeLeftMs, setTimeLeftMs] = useState<number>(timeLimit * 1000);
   const [endAt, setEndAt] = useState<number | null>(initialData?.endAt || null);
   const [showEndOverlay, setShowEndOverlay] = useState<boolean>(false);
   const [finalData, setFinalData] = useState<GameEndData | null>(null);
 
   const me = useMemo(
-    () =>
-      roomData.players.find((p) => p.socketId === (roomData.myId || socket.id)),
+    () => roomData.players.find((p) => p.socketId === roomData.myId),
     [roomData.players, roomData.myId],
   );
 
   const opponent = useMemo(
-    () =>
-      roomData.players.find(
-        (p) => p.socketId !== roomData.myId && roomData.myId !== "",
-      ),
+    () => roomData.players.find((p) => p.socketId !== roomData.myId),
     [roomData.players, roomData.myId],
   );
 
-  const resetGameStatus = useCallback(() => {
-    setState("WAIT");
-    setFinalData(null);
-    setMyWords([]);
-    setOpponentWords([]);
-  }, []);
-
   const onWordValidated = useCallback((res: any) => {
-    console.log("=== 단어 검증 응답 도착 ===");
-    console.log("서버가 보낸 단어:", res.word);
-    console.log("유효 여부(valid):", res.valid);
-    console.log("실패 사유(reason):", res.reason);
-    console.log("서버가 보낸 senderId:", res.senderId);
-    console.log("현재 내 socket.id:", socket.id);
-    console.log("현재 내 roomData.myId:", roomData.myId);
-
     setLastResult(res);
     if (!res.valid) return;
-
-    // handleWordResult(res.word, res.senderId);
-    const currentSocketId = socket.id;
-    if (res.senderId === currentSocketId) {
-      console.log("결과: [내 단어장]에 추가함");
+    if (res.senderId === socket.id) {
       setMyWords((prev) => [...prev, res.word]);
     } else {
-      console.log("결과: [상대 단어장]에 추가함");
       setOpponentWords((prev) => [...prev, res.word]);
     }
   }, []);
 
-  // 게임시작 문구 나올때
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowStartOverlay(false);
-    }, 1000);
-
-    return () => clearTimeout(timer);
-  }, []);
-
-  // 타이머 끝.
   useEffect(() => {
     if (!endAt || state !== "PLAY") return;
 
+    const overlayTimer = setTimeout(() => setShowStartOverlay(false), 1500);
+
     const tick = setInterval(() => {
-      const actualRemaining = Math.max(0, endAt - Date.now());
+      const now = Date.now();
+      const remaining = Math.max(0, endAt - now);
+      setTimeLeftMs(remaining);
 
-      const displayTime = Math.min(timeLimit * 1000, actualRemaining);
-
-      if (showStartOverlay) {
-        setTimeLeftMs(timeLimit * 1000);
-      } else {
-        setTimeLeftMs(displayTime);
-      }
-
-      if (Date.now() >= endAt) {
+      if (remaining <= 0) {
         clearInterval(tick);
-        setTimeLeftMs(0);
       }
     }, 100);
 
-    return () => clearInterval(tick);
-  }, [endAt, state, showStartOverlay, timeLimit]);
+    return () => {
+      clearInterval(tick);
+      clearTimeout(overlayTimer);
+    };
+  }, [endAt, state]);
 
-  // 게임 방 입장 할때
   useEffect(() => {
-    if (!socket.connected) {
-      socket.connect();
-    }
-    socket.emit("join-room");
+    const onGameEnd = (data: GameEndData) => {
+      setFinalData(data);
+      setShowEndOverlay(true);
+      setTimeout(() => {
+        setShowEndOverlay(false);
+        setState("END");
+      }, 1500);
+    };
 
     const onRoomUpdated = ({ players }: { players: PlayerSnapshot[] }) => {
       setRoomData((prev) => ({ ...prev, players }));
     };
 
-    const onSetMyId = ({ you }: { you: string }) => {
-      setRoomData((prev) => ({ ...prev, myId: you }));
-    };
-
-    const onGameStart = ({ chosungPair, endAt }: any) => {
-      setState("PLAY");
-      setChosungPair(chosungPair);
-      console.log("chosung:", chosungPair);
-      setEndAt(endAt);
-      setMyWords([]);
-      setOpponentWords([]);
-    };
-
-    const onGameEnd = (data: GameEndData) => {
-      if (!data || !data.scores) return;
-
-      const myData = data.scores.find((p) => p.socketId === roomData.myId);
-      const opData = data.scores.find((p) => p.socketId !== roomData.myId);
-
-      if (myData) myData.score;
-      if (opData) opData.score;
-
-      setFinalData(data);
-      setTimeLeftMs(0);
-
-      setShowEndOverlay(true);
-
-      setTimeout(() => {
-        setShowEndOverlay(false);
-        setState("END");
-      }, 1000);
-    };
-
     socket.on("word-validated", onWordValidated);
-    socket.on("room-updated", onRoomUpdated);
-    socket.on("set-my-id", onSetMyId);
-    socket.on("game-start", onGameStart);
     socket.on("game-end", onGameEnd);
+    socket.on("room-updated", onRoomUpdated);
 
     return () => {
-      socket.off("room-updated", onRoomUpdated);
-      socket.off("set-my-id", onSetMyId);
-      socket.off("game-start", onGameStart);
       socket.off("word-validated", onWordValidated);
       socket.off("game-end", onGameEnd);
+      socket.off("room-updated", onRoomUpdated);
     };
   }, [onWordValidated]);
 
   return (
-    <>
+    <div className={styles.gameContainer}>
       <div className={styles["out-of-stage"]} />
 
       {showStartOverlay && (
@@ -200,51 +126,42 @@ const GameRoom = ({ timeLimit, initialData }: GameRoomProps) => {
         </div>
       )}
 
-      {state === "END" && !showEndOverlay && finalData && (
+      {state === "END" && finalData && (
         <ResultModal
           socket={socket}
-          scores={finalData.scores || []}
+          scores={finalData.scores}
           words={finalData.words || []}
-          onReset={resetGameStatus}
+          onReset={onRestart}
         />
       )}
 
       <div className={styles.stage}>
         <CommonHeader
-          style={{
-            position: "absolute",
-          }}
+          style={{ position: "absolute" }}
           title="자음 놀이 (놀이마당)"
         />
+
         <PlayerPanel
           key="left-me"
-          nickname={me?.nickname ?? "대기중"}
+          nickname={me?.nickname ?? "나"}
           words={myWords}
         />
+
         <CenterPlay
-          chosungPair={showStartOverlay ? ["?", "?"] : chosungPair}
+          chosungPair={chosungPair}
           lastResult={lastResult}
           onSubmitWord={(word) => socket.emit("submit-word", { word })}
-          timeLeftMs={
-            showStartOverlay
-              ? timeLimit * 1000
-              : Math.min(timeLimit * 1000, timeLeftMs)
-          }
+          timeLeftMs={timeLeftMs}
           state={state}
         />
+
         <PlayerPanel
           key="right-opponent"
-          nickname={
-            opponent && opponent.socketId !== roomData.myId
-              ? opponent.nickname
-              : roomData.players.length < 2
-                ? "상대를 기다리는중..."
-                : "로딩 중"
-          }
+          nickname={opponent?.nickname ?? "상대"}
           words={opponentWords}
         />
       </div>
-    </>
+    </div>
   );
 };
 
