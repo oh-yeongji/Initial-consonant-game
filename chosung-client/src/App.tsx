@@ -32,7 +32,6 @@ const App = () => {
   const handleNicknameConfirm = (nickname: string) => {
     if (!nickname || nickname.trim() === "") return;
 
-    console.log("설정된 닉네임:", nickname);
     socket.emit("join-room", { nickname: nickname.trim() });
     setActiveModal("none");
     setEntered(true);

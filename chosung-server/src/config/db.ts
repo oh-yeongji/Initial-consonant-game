@@ -4,12 +4,6 @@ import dotenv from "dotenv";
 dotenv.config();
 
 export const connectDB = async () => {
-  console.log(" 서버 실행 위치:", process.cwd());
-  console.log(
-    "읽어온 URI:",
-    process.env.MONGODB_URI ? "성공적으로 읽음" : "여전히 undefined",
-  );
-
   const uri = process.env.MONGODB_URI;
 
   if (!uri) {

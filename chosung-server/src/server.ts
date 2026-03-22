@@ -2,7 +2,6 @@ import express from "express";
 import { createServer } from "http";
 import cors from "cors";
 import { Server, Socket } from "socket.io";
-import path from "path";
 import { connectDB } from "./config/db";
 import { Chat } from "./models/Chat";
 import { randomUUID } from "crypto";
@@ -47,19 +46,8 @@ const io = new Server(httpServer, {
   transports: ["polling", "websocket"],
 });
 
-/*==========================================app.use===================
-        
-         방 상태, 플레이어 설정
-
-=======================================================*/
-
 const rooms = new Map<string, Room>();
 
-/*==========================================================================
-        
-      전체방 닉네임 중복 체크
-
-============================================================================*/
 const isNicknameTaken = (nickname: string) => {
   for (const room of rooms.values()) {
     for (const player of room.players.values()) {
@@ -71,11 +59,6 @@ const isNicknameTaken = (nickname: string) => {
   return false;
 };
 
-/*==========================================================================
-        
-         방 생성
-
-============================================================================*/
 const createRoom = (): { roomId: string; room: Room } => {
   const roomId = randomUUID();
   const room: Room = {
@@ -95,12 +78,6 @@ const createRoom = (): { roomId: string; room: Room } => {
   return { roomId, room };
 };
 
-/*===================================================================
-        
-       이 소켓이 속해있는 방을 찾는 함수
-
-====================================================================*/
-
 const getRoomBySocket = (socketId: string) => {
   for (const [roomId, room] of rooms.entries()) {
     if (room.players.has(socketId)) {
@@ -110,21 +87,10 @@ const getRoomBySocket = (socketId: string) => {
   return null;
 };
 
-/*===================================================================
-        
-   게임시작하는 함수
-
-====================================================================*/
-
 const startGame = (roomId: string, room: Room) => {
   if (room.status === "PLAY") {
-    console.log(
-      `[WARN] 방 ${roomId}는 이미 게임 중입니다. 중복 실행을 차단합니다.`,
-    );
     return;
   }
-
-  console.log(`[DEBUG] 게임 시작 시도: 방ID ${roomId}`);
 
   room.status = "PLAY";
   room.chosungPair = getRandomChosungPair();
@@ -149,18 +115,12 @@ const startGame = (roomId: string, room: Room) => {
     endAt: room.endAt,
   });
 
-  console.log(`[DEBUG] ${room.timeLimit}초 타이머 설정됨`);
-
   room.gameDurationTimer = setTimeout(() => {
     const currentRoom = rooms.get(roomId);
     if (!currentRoom || currentRoom.status !== "PLAY") {
-      console.log(
-        `[TIMER_CANCEL] 방이 없거나 상태가 변경되어 종료 로직을 취소함: ${roomId}`,
-      );
       return;
     }
 
-    console.log(`[TIMER_EXPIRED] 시간 종료! 결과 집계 시작: ${roomId}`);
     currentRoom.status = "END";
     currentRoom.gameDurationTimer = undefined;
 
@@ -177,12 +137,6 @@ const startGame = (roomId: string, room: Room) => {
     });
   }, durationMs + bufferTime);
 };
-
-/*===================================================================
-        
-  대기방 시작 카운트 함수
-
-====================================================================*/
 
 const startCountdown = (
   roomId: string,
@@ -210,16 +164,6 @@ const startCountdown = (
     }, 3000);
   }, 1500);
 };
-
-/* =============================================================================
-   
-
-
-        Socket.IO 적용
-
-
-
-================================================================================ */
 
 io.on("connection", (socket: Socket) => {
   socket.on("check-nickname", ({ nickname }) => {
@@ -250,12 +194,6 @@ io.on("connection", (socket: Socket) => {
         : "사용 가능한 닉네임(별호) 입니다.",
     });
   });
-
-  /*=====================================================
-        
-       이탈, 연결끊김, 게임종료
-
-=======================================================*/
 
   const handleLeaveRoom = async (socket: Socket) => {
     const resultData = getRoomBySocket(socket.id);
@@ -301,10 +239,6 @@ io.on("connection", (socket: Socket) => {
         status: room.status,
       });
     } else if (room.status === "PLAY") {
-      console.log(
-        `[STAY_ALIVE] 유저 ${leaver.nickname} 이탈함. 게임은 계속됩니다.`,
-      );
-
       io.to(roomId).emit("receive-chat", {
         socketId: "system",
         nickname: "",
@@ -320,12 +254,10 @@ io.on("connection", (socket: Socket) => {
       }
       rooms.delete(roomId);
       await Chat.deleteMany({ roomId });
-      console.log(`[DELETE] 빈 방 ${roomId} 완전 삭제 완료`);
     }
   };
   socket.on("leave-room", () => handleLeaveRoom(socket));
   socket.on("disconnect", (reason) => {
-    console.log(`[EXIT] 유저 퇴장함: ${socket.id}, 사유: ${reason}`);
     handleLeaveRoom(socket);
   });
 
@@ -335,9 +267,6 @@ io.on("connection", (socket: Socket) => {
       const { roomId: oldId, room: oldRoom } = already;
 
       if (oldRoom.status === "PLAY") {
-        console.log(
-          `[KEEP_ALIVE] 게임 진행 중인 방이므로 삭제를 건너뜁니다: ${oldId}`,
-        );
       } else {
         oldRoom.players.delete(socket.id);
         socket.leave(oldId);
@@ -347,7 +276,6 @@ io.on("connection", (socket: Socket) => {
           if (oldRoom.readyNoticeTimer) clearTimeout(oldRoom.readyNoticeTimer);
 
           rooms.delete(oldId);
-          console.log(`[ROOM_DELETE] 빈 대기방 삭제 완료: ${oldId}`);
         }
       }
     }
@@ -432,7 +360,6 @@ io.on("connection", (socket: Socket) => {
     });
   });
 
-  /*-------------------WaitingRoom 채팅-------------------------------*/
   socket.on("send-chat", async ({ message }) => {
     if (!message || message.trim() === "") return;
 
@@ -464,7 +391,6 @@ io.on("connection", (socket: Socket) => {
     }
   });
 
-  /*---------WaitingRoom 시간 설정 변경---------------*/
   socket.on("change-setting", ({ timeLimit }) => {
     const resultData = getRoomBySocket(socket.id);
     if (!resultData) return;
@@ -489,8 +415,6 @@ io.on("connection", (socket: Socket) => {
       type: "system",
     });
   });
-
-  /*---------WaitingRoom 준비/시작 버튼---------------*/
 
   socket.on("toggle-ready", () => {
     const resultData = getRoomBySocket(socket.id);
@@ -520,8 +444,6 @@ io.on("connection", (socket: Socket) => {
     }
   });
 
-  /*---------방장 강제 시작---------------*/
-
   socket.on("force-start-game", () => {
     const resultData = getRoomBySocket(socket.id);
     if (!resultData) return;
@@ -532,8 +454,6 @@ io.on("connection", (socket: Socket) => {
       startCountdown(roomId, room, "FORCE");
     }
   });
-
-  /*---------방장 강제 시작 취소---------------*/
 
   socket.on("cancel-force-start", () => {
     const resultData = getRoomBySocket(socket.id);
@@ -551,7 +471,6 @@ io.on("connection", (socket: Socket) => {
       io.to(roomId).emit("room-wait");
     }
   });
-  /*---------초성 보내기---------------*/
 
   socket.on("submit-word", async (data: { word: string }) => {
     const resultData = getRoomBySocket(socket.id);

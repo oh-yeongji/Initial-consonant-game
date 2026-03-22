@@ -51,9 +51,8 @@ export async function validateWord({
   }
 
   const dictResult = await checkWordDetail(trimmed);
-  console.log("DICT RESULT RAW:", dictResult);
+
   const { exist, definitions } = dictResult;
-  console.log("exist:", exist);
 
   if (!exist) {
     return {
