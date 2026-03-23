@@ -27,11 +27,35 @@ const WaitingRoom = ({ onClose }: WaitingRoomProps) => {
 
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const chatInputRef = useRef<HTMLInputElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
   const times = [30, 60, 90, 120];
 
   const me = users?.find((u) => u.socketId === myId);
   const isOwner = me?.isOwner || false;
   const myReadyStatus = me?.isReady || false;
+
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [chatList]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        if (
+          startCountdown !== null &&
+          isOwner &&
+          startTrigger !== "ALL_READY"
+        ) {
+          socket.emit("cancel-force-start");
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [startCountdown, isOwner, startTrigger]);
 
   const handleRestart = useCallback(() => {
     setIsGameStarted(false);
@@ -42,9 +66,11 @@ const WaitingRoom = ({ onClose }: WaitingRoomProps) => {
     setShowReadyPopup(false);
   }, []);
 
-  const handleSendMessage = () => {
+  const handleSendMessage = (e?: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e?.nativeEvent.isComposing) return;
     const message = chatInputRef.current?.value;
     if (!me || !message?.trim()) return;
+
     socket.emit("send-chat", {
       socketId: myId,
       nickname: me.nickname,
@@ -57,29 +83,24 @@ const WaitingRoom = ({ onClose }: WaitingRoomProps) => {
     if (!socket.connected) socket.connect();
 
     socket.on("set-my-id", ({ you }) => setMyId(you));
-
     socket.on("settings-updated", ({ timeLimit, usedTimeChangeCount }) => {
       setAppliedTime(timeLimit);
       setUsedTimeChangeCount(usedTimeChangeCount);
       const idx = times.findIndex((t) => t === timeLimit);
       if (idx !== -1) setTimeIdx(idx);
     });
-
     socket.on("receive-chat", (chatData) =>
       setChatList((prev) => [...prev, chatData]),
     );
     socket.on("load-history", (history) => setChatList(history));
-
     socket.on("room-updated", ({ players, status }) => {
       setUsers(players);
       if (status) setState(status);
     });
-
     socket.on("all-ready-notice", ({ trigger }) => {
       setStartTrigger(trigger);
       setShowReadyPopup(true);
     });
-
     socket.on("countdown-start", ({ seconds }) => {
       setShowReadyPopup(false);
       setState("COUNTDOWN");
@@ -93,7 +114,6 @@ const WaitingRoom = ({ onClose }: WaitingRoomProps) => {
         );
       }, 1000);
     });
-
     socket.on("room-wait", () => {
       setState("WAIT");
       setShowReadyPopup(false);
@@ -104,7 +124,6 @@ const WaitingRoom = ({ onClose }: WaitingRoomProps) => {
         intervalRef.current = null;
       }
     });
-
     socket.on("game-start", (game) => {
       setGameInitData({ ...game, players: users, myId: myId });
       setIsGameStarted(true);
@@ -124,12 +143,20 @@ const WaitingRoom = ({ onClose }: WaitingRoomProps) => {
   }, [users, myId]);
 
   useEffect(() => {
-    if (isOwner) {
-      const timer = setTimeout(() => setShowForceStart(true), 1000);
-      return () => clearTimeout(timer);
+    let timer: NodeJS.Timeout;
+    const isAllReady = users.length > 0 && users.every((u) => u.isReady);
+
+    if (isOwner && users.length >= 2 && myReadyStatus && !isAllReady) {
+      timer = setTimeout(() => {
+        setShowForceStart(true);
+      }, 10000);
+    } else {
+      setShowForceStart(false);
     }
-    setShowForceStart(false);
-  }, [isOwner]);
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [isOwner, users, myReadyStatus]);
 
   if (isGameStarted && gameInitData) {
     return (
@@ -261,7 +288,7 @@ const WaitingRoom = ({ onClose }: WaitingRoomProps) => {
                         color: user.socketId === myId ? "#2f6df6" : "#000",
                       }}
                     >
-                      {user.isOwner ? "[방장]" : ""} {user.nickname}
+                      {user.isOwner ? "[방장]" : ""} {user.nickname}{" "}
                       {user.socketId == myId ? " (당신)" : ""}
                     </div>
                     {user.isReady && (
@@ -293,31 +320,45 @@ const WaitingRoom = ({ onClose }: WaitingRoomProps) => {
             </div>
           </div>
 
-          <div className={styles.chatScreen}>
-            {chatList.map((chat, idx) => (
-              <div key={idx} className={styles.chatContainer}>
-                <div
-                  className={
-                    chat.socketId === "system" || chat.type === "system"
-                      ? styles.systemMsg
-                      : styles.userMsg
-                  }
-                >
-                  <span className={styles.nickname}>
-                    {chat.nickname || "[시스템]"}
-                  </span>
-                  : <span className={styles.userChat}>{chat.message}</span>
+          <div
+            className={styles.chatScreen}
+            ref={scrollRef}
+            style={{ overflowY: "auto" }}
+          >
+            {chatList.map((chat, idx) => {
+              const isSystem =
+                chat.socketId === "system" || chat.type === "system";
+              return (
+                <div key={idx} className={styles.chatContainer}>
+                  <div className={isSystem ? styles.systemMsg : styles.userMsg}>
+                    {isSystem ? (
+                      <span
+                        className={styles.userChat}
+                      >{`>>> [시스템] ${chat.message}`}</span>
+                    ) : (
+                      <>
+                        <span className={styles.nickname}>
+                          {chat.nickname || "알수없음"}
+                        </span>
+                        :{" "}
+                        <span className={styles.userChat}>{chat.message}</span>
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
             <div className={styles.inputContainer}>
               <input
                 className={styles.msgChat}
                 type="text"
                 ref={chatInputRef}
-                onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
+                onKeyDown={(e) => e.key === "Enter" && handleSendMessage(e)}
               />
-              <button className={styles.msgSendBtn} onClick={handleSendMessage}>
+              <button
+                className={styles.msgSendBtn}
+                onClick={() => handleSendMessage()}
+              >
                 Enter
               </button>
             </div>
