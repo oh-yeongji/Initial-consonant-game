@@ -239,12 +239,45 @@ io.on("connection", (socket: Socket) => {
         status: room.status,
       });
     } else if (room.status === "PLAY") {
-      io.to(roomId).emit("receive-chat", {
-        socketId: "system",
-        nickname: "",
-        message: `${leaver.nickname}님이 나갔지만 게임은 계속됩니다!`,
-        type: "system",
+      const winner = Array.from(room.players.values())[0];
+
+      room.status = "END";
+
+      if (room.gameDurationTimer) {
+        clearTimeout(room.gameDurationTimer);
+        room.gameDurationTimer = undefined;
+      }
+
+      const finalScore = winner
+        ? [
+            {
+              nickname: winner.nickname,
+              score: winner.score,
+              socketId: winner.socketId,
+              isLeaver: false,
+            },
+            {
+              nickname: leaver.nickname,
+              score: leaver.score,
+              socketId: leaver.socketId,
+              isLeaver: true,
+            },
+          ]
+        : [
+            {
+              nickname: leaver.nickname,
+              score: leaver.score,
+              socketId: leaver.socketId,
+              isLeaver: true,
+            },
+          ];
+
+      io.to(roomId).emit("game-end", {
+        words: Array.from(room.usedWords),
+        scores: finalScore,
       });
+
+      return;
     }
 
     if (room.players.size === 0) {
@@ -256,6 +289,7 @@ io.on("connection", (socket: Socket) => {
       await Chat.deleteMany({ roomId });
     }
   };
+
   socket.on("leave-room", () => handleLeaveRoom(socket));
   socket.on("disconnect", (reason) => {
     handleLeaveRoom(socket);
