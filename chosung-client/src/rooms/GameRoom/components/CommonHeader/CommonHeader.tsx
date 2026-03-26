@@ -1,7 +1,7 @@
 import styles from "./CommonHeader.module.css";
 
 interface CommonHeaderProps {
-  title: string;
+  title: React.ReactNode;
   style?: React.CSSProperties;
   onClose?: () => void;
   isCloseDisabled?: boolean;
