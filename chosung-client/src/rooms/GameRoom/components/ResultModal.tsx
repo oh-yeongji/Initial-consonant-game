@@ -1,5 +1,5 @@
 import { Socket } from "socket.io-client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { GameEndData } from "@/types/domain/room";
 import CommonHeader from "./CommonHeader/CommonHeader";
 interface UsedWord {
@@ -57,6 +57,8 @@ const ResultModal = ({
     !(opponent.isLeaver || false) &&
     me.score === opponent.score;
 
+  const isJoiningRef = useRef(false);
+
   const getCardStyle = (p: any, other: any) => {
     if (!p || !other) return { width: "45%", height: "200px" };
     if (other?.isLeaver || false) return { width: "60%", height: "240px" };
@@ -76,11 +78,21 @@ const ResultModal = ({
     if (isDraw) return "⚠ SYSTEM_ERROR: 패자를 찾지 못했습니다!";
     return "Game_Result.exe";
   };
+
   const handlePlayAgain = () => {
     if (!socket) return;
+    if (isJoiningRef.current) return;
+    isJoiningRef.current = true;
+
     onReset();
     socket.emit("join-room", { nickname: me.nickname });
   };
+
+  const playAgainRef = useRef(handlePlayAgain);
+
+  useEffect(() => {
+    playAgainRef.current = handlePlayAgain;
+  }, [handlePlayAgain]);
 
   const handleExit = useCallback(() => {
     if (socket) {
@@ -90,12 +102,18 @@ const ResultModal = ({
     window.location.replace("/");
   }, [socket]);
 
+  const exitRef = useRef(handleExit);
+
+  useEffect(() => {
+    exitRef.current = handleExit;
+  }, [handleExit]);
+
   useEffect(() => {
     const timer = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
-          // handleExit();
+          handleExit();
           return 0;
         }
         return prev - 1;
@@ -103,6 +121,39 @@ const ResultModal = ({
     }, 1000);
     return () => clearInterval(timer);
   }, [handleExit]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        e.stopPropagation();
+        exitRef.current();
+      }
+
+      if (e.key === "Enter") {
+        e.preventDefault();
+        e.stopPropagation();
+        playAgainRef.current();
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, []);
+
+  useEffect(() => {
+    const handleJoined = () => {
+      isJoiningRef.current = false;
+    };
+
+    socket?.on("room-wait", handleJoined);
+
+    return () => {
+      socket?.off("room-wait", handleJoined);
+    };
+  }, [socket]);
 
   return (
     <div
