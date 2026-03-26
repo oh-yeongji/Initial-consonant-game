@@ -15,10 +15,16 @@ import type {
 interface GameRoomProps {
   timeLimit: number;
   initialData: any;
+  onClose: () => void;
   onRestart: () => void;
 }
 
-const GameRoom = ({ timeLimit, initialData, onRestart }: GameRoomProps) => {
+const GameRoom = ({
+  timeLimit,
+  initialData,
+  onClose,
+  onRestart,
+}: GameRoomProps) => {
   const [roomData, setRoomData] = useState<{
     players: PlayerSnapshot[];
     myId: string;
@@ -131,6 +137,7 @@ const GameRoom = ({ timeLimit, initialData, onRestart }: GameRoomProps) => {
           socket={socket}
           scores={finalData.scores}
           words={finalData.words || []}
+          onClose={onClose}
           onReset={onRestart}
         />
       )}
@@ -139,6 +146,7 @@ const GameRoom = ({ timeLimit, initialData, onRestart }: GameRoomProps) => {
         <CommonHeader
           style={{ position: "absolute" }}
           title="자음 놀이 (놀이마당)"
+          onClose={onClose}
         />
 
         <PlayerPanel

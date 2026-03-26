@@ -12,6 +12,7 @@ interface ResultModalProps {
   socket: Socket | null;
   scores: GameEndData["scores"];
   words: UsedWord[];
+  onClose: () => void;
   onReset: () => void;
 }
 
@@ -19,6 +20,7 @@ const ResultModal = ({
   socket,
   scores = [],
   words = [],
+  onClose,
   onReset,
 }: ResultModalProps) => {
   const myId = socket?.id;
@@ -180,9 +182,7 @@ const ResultModal = ({
           height: "auto",
           borderBottom: isLeaver ? "2px solid #FFD700" : "none",
         }}
-        onClose={() => {
-          console.log("결과창 닫기");
-        }}
+        onClose={onClose}
       />
       <div
         style={{

@@ -164,6 +164,7 @@ const WaitingRoom = ({ onClose }: WaitingRoomProps) => {
         key={`game-session-${gameVersion}`}
         timeLimit={times[timeIdx]}
         initialData={gameInitData}
+        onClose={onClose}
         onRestart={handleRestart}
       />
     );
