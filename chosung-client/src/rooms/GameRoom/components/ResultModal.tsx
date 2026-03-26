@@ -1,7 +1,7 @@
 import { Socket } from "socket.io-client";
 import { useState, useEffect, useCallback } from "react";
 import { GameEndData } from "@/types/domain/room";
-
+import CommonHeader from "./CommonHeader/CommonHeader";
 interface UsedWord {
   word: string;
   senderId: string;
@@ -39,6 +39,15 @@ const ResultModal = ({
       socketId: "",
     };
 
+  const myWords = words.filter((w) => w.senderId === me?.socketId);
+  const opWords = opponent
+    ? words.filter((w) => w.senderId === opponent.socketId)
+    : [];
+
+  const [timeLeft, setTimeLeft] = useState<number>(15);
+
+  const isLeaver = opponent?.isLeaver || false;
+
   const isDraw =
     me &&
     opponent &&
@@ -59,13 +68,12 @@ const ResultModal = ({
     }
   };
 
-  const myWords = words.filter((w) => w.senderId === me?.socketId);
-  const opWords = opponent
-    ? words.filter((w) => w.senderId === opponent.socketId)
-    : [];
-
-  const [timeLeft, setTimeLeft] = useState<number>(15);
-
+  const getTitleText = () => {
+    if (isLeaver)
+      return "🏆 [FORFEIT_WIN]: 축하합니다! 당신의 끈기 있는 플레이로 승리를 쟁취했습니다!";
+    if (isDraw) return "⚠ SYSTEM_ERROR: 패자를 찾지 못했습니다!";
+    return "Game_Result.exe";
+  };
   const handlePlayAgain = () => {
     if (!socket) return;
     onReset();
@@ -85,7 +93,7 @@ const ResultModal = ({
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
-          handleExit();
+          // handleExit();
           return 0;
         }
         return prev - 1;
@@ -118,7 +126,7 @@ const ResultModal = ({
         padding: "15px",
       }}
     >
-      <div
+      {/* <div
         style={{
           background:
             opponent?.isLeaver || false
@@ -150,38 +158,32 @@ const ResultModal = ({
               : "Game_Result.exe"}
         </span>
 
-        <div style={{ display: "flex", gap: "2px" }}>
-          <div
+        
+      </div> */}
+      <CommonHeader
+        title={
+          <span
             style={{
-              width: "16px",
-              height: "14px",
-              background: "#C0C0C0",
-              border: "1px solid #000",
-              color: "#000",
-              fontSize: "10px",
-              textAlign: "center",
-              lineHeight: "12px",
+              color: isLeaver ? "#FFD700" : "#ffffff",
+              fontFamily: "Galmuri9",
+              fontSize: "16px",
+              lineHeight: "1.5",
             }}
           >
-            _
-          </div>
-          <div
-            style={{
-              width: "16px",
-              height: "14px",
-              background: "#C0C0C0",
-              border: "1px solid #000",
-              color: "#000",
-              fontSize: "10px",
-              textAlign: "center",
-              lineHeight: "12px",
-            }}
-          >
-            X
-          </div>
-        </div>
-      </div>
-
+            {getTitleText()}
+          </span>
+        }
+        style={{
+          background: isLeaver ? "#008080" : isDraw ? "#000000" : "#000080",
+          padding: "5px 10px",
+          margin: "0 0 15px",
+          height: "auto",
+          borderBottom: isLeaver ? "2px solid #FFD700" : "none",
+        }}
+        onClose={() => {
+          console.log("결과창 닫기");
+        }}
+      />
       <div
         style={{
           display: "flex",
@@ -192,7 +194,7 @@ const ResultModal = ({
           borderTop: "2px solid #ffffff",
           borderLeft: "2px solid #ffffff",
           borderRight: "2px solid #808080",
-          borderBottom: "2px solid #808080",
+          borderBottom: "2px solid #3c3434",
           flexShrink: 0,
           gap: "10px",
           minHeight: "260px",
