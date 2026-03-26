@@ -57,8 +57,6 @@ const ResultModal = ({
     !(opponent.isLeaver || false) &&
     me.score === opponent.score;
 
-  const isJoiningRef = useRef(false);
-
   const getCardStyle = (p: any, other: any) => {
     if (!p || !other) return { width: "45%", height: "200px" };
     if (other?.isLeaver || false) return { width: "60%", height: "240px" };
@@ -81,11 +79,8 @@ const ResultModal = ({
 
   const handlePlayAgain = () => {
     if (!socket) return;
-    if (isJoiningRef.current) return;
-    isJoiningRef.current = true;
 
     onReset();
-    socket.emit("join-room", { nickname: me.nickname });
   };
 
   const playAgainRef = useRef(handlePlayAgain);
@@ -143,18 +138,6 @@ const ResultModal = ({
     };
   }, []);
 
-  useEffect(() => {
-    const handleJoined = () => {
-      isJoiningRef.current = false;
-    };
-
-    socket?.on("room-wait", handleJoined);
-
-    return () => {
-      socket?.off("room-wait", handleJoined);
-    };
-  }, [socket]);
-
   return (
     <div
       style={{
@@ -179,40 +162,6 @@ const ResultModal = ({
         padding: "15px",
       }}
     >
-      {/* <div
-        style={{
-          background:
-            opponent?.isLeaver || false
-              ? "#008080"
-              : isDraw
-                ? "#000000"
-                : "#000080",
-          color: "#ffffff",
-          padding: "5px 10px",
-          marginBottom: "15px",
-          fontFamily: "'Galmuri9', sans-serif",
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          borderBottom:
-            opponent?.isLeaver || false ? "2px solid #FFD700" : "none",
-        }}
-      >
-        <span
-          style={{
-            color: opponent?.isLeaver || false ? "#FFD700" : "#ffffff",
-            fontWeight: "bold",
-          }}
-        >
-          {opponent?.isLeaver || false
-            ? "🏆 [FORFEIT_WIN]: 축하합니다! 당신의 끈기 있는 플레이로 승리를 쟁취했습니다!"
-            : isDraw
-              ? "⚠ SYSTEM_ERROR: 패자를 찾지 못했습니다!"
-              : "Game_Result.exe"}
-        </span>
-
-        
-      </div> */}
       <CommonHeader
         title={
           <span

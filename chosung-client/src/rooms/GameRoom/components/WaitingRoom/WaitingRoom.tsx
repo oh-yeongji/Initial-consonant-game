@@ -34,6 +34,10 @@ const WaitingRoom = ({ onClose }: WaitingRoomProps) => {
   const isOwner = me?.isOwner || false;
   const myReadyStatus = me?.isReady || false;
 
+  const isJoiningRef = useRef(false);
+
+  const nicknameRef = useRef("");
+
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -57,6 +61,12 @@ const WaitingRoom = ({ onClose }: WaitingRoomProps) => {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [startCountdown, isOwner, startTrigger]);
 
+  useEffect(() => {
+    if (me?.nickname) {
+      nicknameRef.current = me.nickname;
+    }
+  }, [me]);
+
   const handleRestart = useCallback(() => {
     setIsGameStarted(false);
     setGameInitData(null);
@@ -64,7 +74,11 @@ const WaitingRoom = ({ onClose }: WaitingRoomProps) => {
     setState("WAIT");
     setStartCountdown(null);
     setShowReadyPopup(false);
-  }, []);
+    if (isJoiningRef.current) return;
+    isJoiningRef.current = true;
+
+    socket.emit("join-room", { nickname: nicknameRef.current });
+  }, [me, socket]);
 
   const handleSendMessage = (e?: React.KeyboardEvent<HTMLInputElement>) => {
     if (e?.nativeEvent.isComposing) return;
@@ -119,6 +133,7 @@ const WaitingRoom = ({ onClose }: WaitingRoomProps) => {
       setShowReadyPopup(false);
       setStartCountdown(null);
       setStartTrigger("");
+      isJoiningRef.current = false;
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
