@@ -111,7 +111,7 @@ const ResultModal = ({
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
-          handleExit();
+          // handleExit();
           return 0;
         }
         return prev - 1;
@@ -228,7 +228,8 @@ const ResultModal = ({
           <div
             style={{
               background:
-                me.score >= opponent.score && !(me.isLeaver || false)
+                (me.score > opponent.score && !me.isLeaver) ||
+                opponent?.isLeaver
                   ? "linear-gradient(90deg, #0000A0 0%, #0000FF 100%)"
                   : "#808080",
               color: "white",
@@ -327,11 +328,13 @@ const ResultModal = ({
               }}
             >
               <span>
-                {isDraw
-                  ? "Co-Winner.exe"
-                  : opponent.score > me.score
-                    ? "Winner.exe"
-                    : "Loser.log"}
+                {opponent.isLeaver
+                  ? "Loser.log"
+                  : isDraw
+                    ? "Co-Winner.exe"
+                    : opponent.score > me.score
+                      ? "Winner.exe"
+                      : "Loser.log"}
                 {(opponent.isLeaver || false) && "🏳️"}
               </span>
               <span>
@@ -367,6 +370,7 @@ const ResultModal = ({
                 }}
               >
                 {opponent.nickname}
+                {opponent.isLeaver ? " (기권)" : ""}
               </li>
               <li
                 style={{
