@@ -74,7 +74,10 @@ const ResultModal = ({
     if (isLeaver)
       return "🏆 [FORFEIT_WIN]: 축하합니다! 당신의 끈기 있는 플레이로 승리를 쟁취했습니다!";
     if (isDraw) return "⚠ SYSTEM_ERROR: 패자를 찾지 못했습니다!";
-    return "Game_Result.exe";
+    if (me.score > opponent.score) {
+      return "[SYSTEM] 축하합니다! 귀하께서 승리하셨습니다!";
+    }
+    return "[SYSTEM] 아쉽게도 패배하셨습니다. 다시 시도하시겠습니까?";
   };
 
   const handlePlayAgain = () => {
@@ -167,6 +170,7 @@ const ResultModal = ({
           <span
             style={{
               color: isLeaver ? "#FFD700" : "#ffffff",
+
               fontFamily: "Galmuri9",
               fontSize: "16px",
               lineHeight: "1.5",
@@ -176,7 +180,13 @@ const ResultModal = ({
           </span>
         }
         style={{
-          background: isLeaver ? "#008080" : isDraw ? "#000000" : "#000080",
+          background: isLeaver
+            ? "#008080"
+            : isDraw
+              ? "#000000"
+              : me.score > opponent.score
+                ? "#000080"
+                : "#606060",
           padding: "5px 10px",
           margin: "0 0 15px",
           height: "auto",
