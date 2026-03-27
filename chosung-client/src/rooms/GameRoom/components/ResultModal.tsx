@@ -48,20 +48,18 @@ const ResultModal = ({
 
   const [timeLeft, setTimeLeft] = useState<number>(15);
 
+  const isWinner =
+    !me.isLeaver && (me.score > opponent.score || opponent?.isLeaver);
   const isLeaver = opponent?.isLeaver || false;
 
   const isDraw =
-    me &&
-    opponent &&
-    !(me.isLeaver || false) &&
-    !(opponent.isLeaver || false) &&
-    me.score === opponent.score;
+    !me.isLeaver && !opponent.isLeaver && me.score === opponent.score;
 
   const getCardStyle = (p: any, other: any) => {
     if (!p || !other) return { width: "45%", height: "200px" };
-    if (other?.isLeaver || false) return { width: "60%", height: "240px" };
+    if (other?.isLeaver) return { width: "60%", height: "240px" };
     if (isDraw) return { width: "45%", height: "200px" };
-    if (p?.isLeaver || false) return { width: "30%", height: "180px" };
+    if (p?.isLeaver) return { width: "30%", height: "180px" };
 
     if (p.score > other.score) {
       return { width: "50%", height: "220px" };
@@ -74,7 +72,7 @@ const ResultModal = ({
     if (isLeaver)
       return "🏆 [FORFEIT_WIN]: 축하합니다! 당신의 끈기 있는 플레이로 승리를 쟁취했습니다!";
     if (isDraw) return "⚠ SYSTEM_ERROR: 패자를 찾지 못했습니다!";
-    if (me.score > opponent.score) {
+    if (isWinner) {
       return "[SYSTEM] 축하합니다! 귀하께서 승리하셨습니다!";
     }
     return "[SYSTEM] 아쉽게도 패배하셨습니다. 다시 시도하시겠습니까?";
@@ -111,7 +109,7 @@ const ResultModal = ({
       setTimeLeft((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
-          // handleExit();
+          handleExit();
           return 0;
         }
         return prev - 1;
@@ -184,7 +182,7 @@ const ResultModal = ({
             ? "#008080"
             : isDraw
               ? "#000000"
-              : me.score > opponent.score
+              : isWinner
                 ? "#000080"
                 : "#606060",
           padding: "5px 10px",
@@ -227,11 +225,9 @@ const ResultModal = ({
         >
           <div
             style={{
-              background:
-                (me.score > opponent.score && !me.isLeaver) ||
-                opponent?.isLeaver
-                  ? "linear-gradient(90deg, #0000A0 0%, #0000FF 100%)"
-                  : "#808080",
+              background: isWinner
+                ? "linear-gradient(90deg, #0000A0 0%, #0000FF 100%)"
+                : "#808080",
               color: "white",
               padding: "4px 10px",
               fontFamily: "'Galmuri9', sans-serif",
@@ -241,20 +237,9 @@ const ResultModal = ({
             }}
           >
             <span>
-              {isDraw
-                ? "Co-Winner.exe"
-                : me.score > opponent.score || opponent?.isLeaver || false
-                  ? "Winner.exe"
-                  : "Loser.log"}
+              {isDraw ? "Co-Winner.exe" : isWinner ? "Winner.exe" : "Loser.log"}
             </span>
-            <span>
-              {isDraw ||
-              me.score > opponent.score ||
-              opponent?.isLeaver ||
-              false
-                ? "🏆"
-                : "🥈"}
-            </span>
+            <span>{isDraw || isWinner ? "🏆" : "🥈"}</span>
           </div>
           <ul
             style={{
@@ -302,7 +287,7 @@ const ResultModal = ({
               width: getCardStyle(opponent, me).width,
               height: getCardStyle(opponent, me).height,
               padding: "2px",
-              opacity: opponent.isLeaver || false ? 0.7 : 1,
+              opacity: opponent.isLeaver ? 0.7 : 1,
               borderTop: "2px solid #808080",
               borderLeft: "2px solid #808080",
               borderRight: "2px solid #ffffff",
@@ -315,8 +300,7 @@ const ResultModal = ({
             <div
               style={{
                 background:
-                  isDraw ||
-                  (opponent.score > me.score && !(opponent.isLeaver || false))
+                  isDraw || (opponent.score > me.score && !opponent.isLeaver)
                     ? "linear-gradient(90deg, #0000A0 0%, #0000FF 100%)"
                     : "#808080",
                 color: "white",
@@ -335,13 +319,12 @@ const ResultModal = ({
                     : opponent.score > me.score
                       ? "Winner.exe"
                       : "Loser.log"}
-                {(opponent.isLeaver || false) && "🏳️"}
+                {opponent.isLeaver && "🏳️"}
               </span>
               <span>
-                {isDraw ||
-                (opponent.score > me.score && !(opponent.isLeaver || false))
+                {isDraw || (opponent.score > me.score && !opponent.isLeaver)
                   ? "🏆"
-                  : opponent.isLeaver || false
+                  : opponent.isLeaver
                     ? "👎"
                     : "🥈"}
               </span>
@@ -352,7 +335,7 @@ const ResultModal = ({
                 padding: "10px",
                 margin: 0,
                 textAlign: "center",
-                background: opponent.isLeaver || false ? "#e0e0e0" : "#fff",
+                background: opponent.isLeaver ? "#e0e0e0" : "#fff",
                 flex: 1,
                 display: "flex",
                 flexDirection: "column",
@@ -377,14 +360,12 @@ const ResultModal = ({
                   fontSize: "24px",
                   fontWeight: "bold",
                   marginTop: "10px",
-                  color:
-                    opponent.isLeaver || false
-                      ? "#808080"
-                      : isDraw || opponent.score > me.score
-                        ? "#ff0000"
-                        : "#808080",
-                  textDecoration:
-                    opponent.isLeaver || false ? "line-through" : "none",
+                  color: opponent.isLeaver
+                    ? "#808080"
+                    : isDraw || opponent.score > me.score
+                      ? "#ff0000"
+                      : "#808080",
+                  textDecoration: opponent.isLeaver ? "line-through" : "none",
                   fontFamily: "'Galmuri9', sans-serif",
                 }}
               >
@@ -491,7 +472,7 @@ const ResultModal = ({
             overflowY: "auto",
             margin: "25px 10px",
             padding: "15px",
-            background: opponent?.isLeaver || false ? "#ececec" : "#f9fafb",
+            background: opponent?.isLeaver ? "#ececec" : "#f9fafb",
             border: "2px solid #808080",
             borderRightColor: "#fff",
             borderBottomColor: "#fff",
@@ -514,7 +495,7 @@ const ResultModal = ({
                   key={idx}
                   style={{
                     marginBottom: "10px",
-                    opacity: opponent?.isLeaver || false ? 0.6 : 1,
+                    opacity: opponent?.isLeaver ? 0.6 : 1,
                     background: "#fff",
                     borderTop: "2px solid #dfdfdf",
                     borderLeft: "2px solid #dfdfdf",
