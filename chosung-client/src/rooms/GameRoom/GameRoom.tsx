@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { socket } from "@/socket/socket";
 import styles from "./GameRoom.module.css";
 import PlayerPanel from "./components/PlayerPanel/PlayerPanel";
@@ -12,9 +12,16 @@ import type {
   GameEndData,
 } from "@/types/domain/room";
 
+interface InitialData {
+  players: PlayerSnapshot[];
+  myId?: string;
+  chosungPair: [string, string];
+  endAt: number | null;
+}
+
 interface GameRoomProps {
   timeLimit: number;
-  initialData: any;
+  initialData: InitialData;
   onClose: () => void;
   onRestart: () => void;
 }
@@ -25,35 +32,32 @@ const GameRoom = ({
   onClose,
   onRestart,
 }: GameRoomProps) => {
-  const [roomData, setRoomData] = useState<{
-    players: PlayerSnapshot[];
-    myId: string;
-  }>({
-    players: initialData?.players || [],
-    myId: initialData?.myId || socket.id || "",
-  });
-
+  const myId = useMemo(
+    () => initialData?.myId || socket.id || "",
+    [initialData?.myId],
+  );
+  const [players, setPlayers] = useState<PlayerSnapshot[]>(
+    initialData?.players || [],
+  );
   const [state, setState] = useState<RoomStatus>("PLAY");
   const [showStartOverlay, setShowStartOverlay] = useState<boolean>(true);
-  const [chosungPair, setChosungPair] = useState<[string, string]>(
-    initialData?.chosungPair || ["?", "?"],
-  );
   const [lastResult, setLastResult] = useState<any>(null);
   const [myWords, setMyWords] = useState<string[]>([]);
   const [opponentWords, setOpponentWords] = useState<string[]>([]);
   const [timeLeftMs, setTimeLeftMs] = useState<number>(timeLimit * 1000);
-  const [endAt, setEndAt] = useState<number | null>(initialData?.endAt || null);
   const [showEndOverlay, setShowEndOverlay] = useState<boolean>(false);
   const [finalData, setFinalData] = useState<GameEndData | null>(null);
 
-  const me = useMemo(
-    () => roomData.players.find((p) => p.socketId === roomData.myId),
-    [roomData.players, roomData.myId],
-  );
+  const chosungPair = initialData?.chosungPair || ["?", "?"];
+  const endAt = initialData?.endAt || null;
 
+  const me = useMemo(
+    () => players.find((p) => p.socketId === myId),
+    [players, myId],
+  );
   const opponent = useMemo(
-    () => roomData.players.find((p) => p.socketId !== roomData.myId),
-    [roomData.players, roomData.myId],
+    () => players.find((p) => p.socketId !== myId),
+    [players, myId],
   );
 
   const onWordValidated = useCallback((res: any) => {
@@ -67,9 +71,12 @@ const GameRoom = ({
   }, []);
 
   useEffect(() => {
-    if (!endAt || state !== "PLAY") return;
-
     const overlayTimer = setTimeout(() => setShowStartOverlay(false), 1500);
+    return () => clearTimeout(overlayTimer);
+  }, []);
+
+  useEffect(() => {
+    if (!endAt || state !== "PLAY") return;
 
     const tick = setInterval(() => {
       const now = Date.now();
@@ -81,10 +88,7 @@ const GameRoom = ({
       }
     }, 100);
 
-    return () => {
-      clearInterval(tick);
-      clearTimeout(overlayTimer);
-    };
+    return () => clearInterval(tick);
   }, [endAt, state]);
 
   useEffect(() => {
@@ -97,8 +101,8 @@ const GameRoom = ({
       }, 1500);
     };
 
-    const onRoomUpdated = ({ players }: { players: PlayerSnapshot[] }) => {
-      setRoomData((prev) => ({ ...prev, players }));
+    const onRoomUpdated = (data: { players: PlayerSnapshot[] }) => {
+      setPlayers(data.players);
     };
 
     socket.on("word-validated", onWordValidated);
