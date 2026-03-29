@@ -2,7 +2,9 @@ import express from "express";
 import { createServer } from "http";
 import cors from "cors";
 import { Server, Socket } from "socket.io";
+import { checkWordDetail } from "./lib/dict";
 import { connectDB } from "./config/db";
+import { WordModel } from "./models/Word";
 import { Chat } from "./models/Chat";
 import { randomUUID } from "crypto";
 import gameRouter from "./routes/game.routes";
@@ -540,10 +542,12 @@ io.on("connection", (socket: Socket) => {
     });
 
     if (result.valid) {
+      const wordDetail = await checkWordDetail(trimmed);
+
       room.usedWords.add({
         word: trimmed,
         senderId: socket.id,
-        definitions: result.definitions || [],
+        definitions: [wordDetail.definition],
       });
 
       const player = room.players.get(socket.id);

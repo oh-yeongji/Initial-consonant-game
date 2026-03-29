@@ -39,7 +39,7 @@ export async function validateWord({
       reason: "이미 사용한 단어입니다.",
     };
   }
-  //word는입력값 유저가 보낸 단어에서 초성을 추출
+
   const extracted = extractTwoChosungs(trimmed);
 
   if (!extracted) {
@@ -52,7 +52,7 @@ export async function validateWord({
 
   const dictResult = await checkWordDetail(trimmed);
 
-  const { exist, definitions } = dictResult;
+  const { exist, definition } = dictResult;
 
   if (!exist) {
     return {
@@ -62,5 +62,5 @@ export async function validateWord({
     };
   }
 
-  return { valid: true, word: trimmed, definitions: definitions || [] };
+  return { valid: true, word: trimmed, definitions: definition };
 }
