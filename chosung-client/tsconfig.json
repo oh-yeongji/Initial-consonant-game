@@ -1,19 +1,17 @@
 {
   "compilerOptions": {
-    "target": "ES2020",
+    "target": "ESNext",
     "module": "ESNext",
-    "moduleResolution": "Node",
+    "moduleResolution": "Bundler",
     "rootDir": "src",
     "outDir": "dist",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "jsx": "react-jsx",
-
-    "baseUrl": "src",
     "paths": {
-      "@api/*": ["api/*"],
-      "@/*": ["*"]
+      "@api/*": ["./src/api/*"],
+      "@/*": ["./src/*"]
     }
   },
   "include": ["src"]
