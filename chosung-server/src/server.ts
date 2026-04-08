@@ -2,8 +2,8 @@ import express from "express";
 import { createServer } from "http";
 import cors from "cors";
 import { Server, Socket } from "socket.io";
-import { checkWordDetail } from "./lib/dict";
 import { connectDB } from "./config/db";
+import { checkWordDetail } from "./lib/dict";
 import { WordModel } from "./models/Word";
 import { Chat } from "./models/Chat";
 import { randomUUID } from "crypto";
@@ -32,7 +32,15 @@ app.use("/api", gameRouter);
 
 const httpServer = createServer(app);
 
-connectDB();
+connectDB().then(async () => {
+  console.log("seed넣기성공");
+  // seedWordsFromCSV();
+
+  const totalCount = await WordModel.countDocuments();
+  console.log("-----------------------------------------");
+  console.log(`📊 현재 DB에 저장된 총 단어 수: ${totalCount}개`);
+  console.log("-----------------------------------------");
+});
 
 const io = new Server(httpServer, {
   cors: {
@@ -541,9 +549,8 @@ io.on("connection", (socket: Socket) => {
       usedWords: new Set(Array.from(room.usedWords).map((uw) => uw.word)),
     });
 
-    if (result.valid) {
-      const wordDetail = await checkWordDetail(trimmed);
-
+    const wordDetail = await checkWordDetail(trimmed);
+    if (result.valid && wordDetail.exist) {
       room.usedWords.add({
         word: trimmed,
         senderId: socket.id,
