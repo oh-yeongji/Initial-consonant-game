@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+// @ts-ignore
 import csv from "csv-parser";
 import { WordModel } from "../models/Word";
 
