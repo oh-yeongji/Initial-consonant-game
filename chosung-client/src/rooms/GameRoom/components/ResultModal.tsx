@@ -14,6 +14,7 @@ interface ResultModalProps {
   words: UsedWord[];
   onClose: () => void;
   onReset: () => void;
+  resultsEndAt: number;
 }
 
 const ResultModal = ({
@@ -22,6 +23,7 @@ const ResultModal = ({
   words = [],
   onClose,
   onReset,
+  resultsEndAt,
 }: ResultModalProps) => {
   const myId = socket?.id;
 
@@ -46,7 +48,9 @@ const ResultModal = ({
     ? words.filter((w) => w.senderId === opponent.socketId)
     : [];
 
-  const [timeLeft, setTimeLeft] = useState<number>(15);
+  const [timeLeft, setTimeLeft] = useState<number>(() => {
+    return Math.max(0, Math.ceil((resultsEndAt - Date.now()) / 1000));
+  });
 
   const isWinner =
     !me.isLeaver && (me.score > opponent.score || opponent?.isLeaver);
@@ -106,17 +110,21 @@ const ResultModal = ({
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
+      setTimeLeft(() => {
+        const diff = resultsEndAt - Date.now();
+        const seconds = Math.max(0, Math.ceil(diff / 1000));
+
+        if (seconds <= 0) {
           clearInterval(timer);
           handleExit();
           return 0;
         }
-        return prev - 1;
+        return seconds;
       });
     }, 1000);
+
     return () => clearInterval(timer);
-  }, [handleExit]);
+  }, [resultsEndAt, handleExit]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

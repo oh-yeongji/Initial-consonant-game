@@ -136,6 +136,8 @@ const startGame = (roomId: string, room: Room) => {
     currentRoom.status = "END";
     currentRoom.gameDurationTimer = undefined;
 
+    const resultsEndAt = Date.now() + 15000;
+
     const finalScore = Array.from(currentRoom.players.values()).map((p) => ({
       nickname: p.nickname,
       score: p.score,
@@ -146,6 +148,7 @@ const startGame = (roomId: string, room: Room) => {
     io.to(roomId).emit("game-end", {
       words: Array.from(currentRoom.usedWords),
       scores: finalScore,
+      resultsEndAt,
     });
   }, durationMs + bufferTime);
 };
@@ -252,13 +255,14 @@ io.on("connection", (socket: Socket) => {
       });
     } else if (room.status === "PLAY") {
       const winner = Array.from(room.players.values())[0];
-
       room.status = "END";
 
       if (room.gameDurationTimer) {
         clearTimeout(room.gameDurationTimer);
         room.gameDurationTimer = undefined;
       }
+
+      const resultsEndAt = Date.now() + 15000;
 
       const finalScore = winner
         ? [
@@ -287,6 +291,7 @@ io.on("connection", (socket: Socket) => {
       io.to(roomId).emit("game-end", {
         words: Array.from(room.usedWords),
         scores: finalScore,
+        resultsEndAt,
       });
 
       return;
