@@ -20,7 +20,7 @@ export const seedWordsFromCSV = () => {
   fs.createReadStream(csvFilePath)
     .pipe(
       csv({
-        mapHeaders: ({ header }) => {
+        mapHeaders: ({ header }: { header: string }) => {
           if (header === "수준") return "level";
           if (header === "동형어번호") return "num";
           if (header === "표출 어휘") return "word";
@@ -28,52 +28,38 @@ export const seedWordsFromCSV = () => {
         },
       }),
     )
-    .on("data", (data) => {
+    .on("data", (data: any) => {
       if (data.word) {
-        // 1. 단어 정제: 숫자 제거 + "-" 특수문자 제거 + 공백 제거
         const cleanWord = data.word
           .split("/")[0]
-          .replace(/[0-9]/g, "") // 숫자 제거
-          .replace(/-/g, "") // "-" 기호 제거 (중복 에러 방지)
+          .replace(/[0-9]/g, "")
+          .replace(/-/g, "")
           .trim();
 
-        // 2. 유효한 단어만 결과 배열에 추가
         if (cleanWord && cleanWord.length === 2) {
-          // 2글자 이상만 추천
           results.push({
             word: cleanWord,
             level: data.level,
             exist: true,
             original: data.word,
-            definition: "", // 모델에 definition이 필수라면 빈 값 추가
+            definition: "",
           });
         }
       }
     })
     .on("end", async () => {
-      console.log(
-        ` CSV 읽기 완료: 총 ${results.length}개 발견 (중복 제거 전)`,
-      );
-
       try {
-       const uniqueResults = Array.from(
+        const uniqueResults = Array.from(
           new Map(results.map((item) => [item.word, item])).values(),
         );
 
         console.log(`✨ 중복 제거 후 최종 단어 수: ${uniqueResults.length}개`);
 
-        // 4. 기존 데이터 삭제 후 대량 삽입
         await WordModel.deleteMany({});
 
-        // { ordered: false } 옵션을 주면 하나가 에러나도 나머지는 다 들어갑니다.
         await WordModel.insertMany(uniqueResults, { ordered: false });
-
-        console.log("-----------------------------------------");
-        console.log("✅ DB 저장 완료!");
-        console.log("💡 샘플 데이터(5개):", uniqueResults.slice(0, 5));
-        console.log("-----------------------------------------");
       } catch (err) {
-        console.error("❌ DB 저장 중 오류 발생:", err);
+        console.error(" DB 저장 중 오류 발생:", err);
       }
     });
 };
