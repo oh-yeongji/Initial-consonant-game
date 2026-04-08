@@ -117,13 +117,15 @@ const startGame = (roomId: string, room: Room) => {
 
   const limit = room.timeLimit || 60;
   const durationMs = limit * 1000;
-  const bufferTime = 1500;
-  room.endAt = Date.now() + durationMs + bufferTime;
+  const syncBuffer = 2500;
+  room.endAt = Date.now() + durationMs + syncBuffer;
 
   io.to(roomId).emit("game-start", {
     chosungPair: room.chosungPair,
     endAt: room.endAt,
   });
+
+  const bufferTime = 3500;
 
   room.gameDurationTimer = setTimeout(() => {
     const currentRoom = rooms.get(roomId);
