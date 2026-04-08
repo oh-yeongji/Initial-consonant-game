@@ -49,7 +49,9 @@ const ResultModal = ({
     : [];
 
   const [timeLeft, setTimeLeft] = useState<number>(() => {
-    return Math.max(0, Math.ceil((resultsEndAt - Date.now()) / 1000));
+    if (!resultsEndAt) return 15;
+    const diff = resultsEndAt - Date.now();
+    return Math.max(0, Math.ceil(diff / 1000));
   });
 
   const isWinner =
@@ -113,6 +115,8 @@ const ResultModal = ({
       setTimeLeft(() => {
         const diff = resultsEndAt - Date.now();
         const seconds = Math.max(0, Math.ceil(diff / 1000));
+
+        if (isNaN(seconds)) return 0;
 
         if (seconds <= 0) {
           clearInterval(timer);

@@ -50,7 +50,7 @@ const GameRoom = ({
 
   const chosungPair = initialData?.chosungPair || ["?", "?"];
   const endAt = initialData?.endAt || null;
-
+  const [resultsEndAt, setResultsEndAt] = useState<number>(0);
   const me = useMemo(
     () => players.find((p) => p.socketId === myId),
     [players, myId],
@@ -92,8 +92,9 @@ const GameRoom = ({
   }, [endAt, state]);
 
   useEffect(() => {
-    const onGameEnd = (data: GameEndData) => {
+    const onGameEnd = (data: GameEndData & { resultsEndAt: number }) => {
       setFinalData(data);
+      setResultsEndAt(data.resultsEndAt);
       setShowEndOverlay(true);
       setTimeout(() => {
         setShowEndOverlay(false);
@@ -143,6 +144,7 @@ const GameRoom = ({
           words={finalData.words || []}
           onClose={onClose}
           onReset={onRestart}
+          resultsEndAt={resultsEndAt}
         />
       )}
 
