@@ -518,20 +518,16 @@ io.on("connection", (socket: Socket) => {
 
   socket.on("submit-word", async (data: { word: string }) => {
     const resultData = getRoomBySocket(socket.id);
-
-    if (!resultData) {
-      console.error(`[ERROR] 방을 찾을 수 없는 유저: ${socket.id}`);
-      return;
-    }
+    if (!resultData) return;
 
     const { room, roomId } = resultData;
     if (room.status !== "PLAY") return;
+
     const word = data.word.trim();
     if (room.endAt && Date.now() > room.endAt) return;
-    const trimmed = word.trim();
 
     const isAlreadyUsed = Array.from(room.usedWords).some(
-      (used) => used.word === trimmed,
+      (used) => used.word === word,
     );
 
     if (isAlreadyUsed) {
@@ -545,14 +541,27 @@ io.on("connection", (socket: Socket) => {
 
     const result = await validateWord({
       chosungPair: room.chosungPair,
-      word: trimmed,
+      word: word,
       usedWords: new Set(Array.from(room.usedWords).map((uw) => uw.word)),
     });
 
-    const wordDetail = await checkWordDetail(trimmed);
+    const wordDetail = await checkWordDetail(word);
+
+    const secondCheckIdx = Array.from(room.usedWords).findIndex(
+      (uw) => uw.word === word,
+    );
+    if (secondCheckIdx !== -1) {
+      return socket.emit("word-validated", {
+        word,
+        valid: false,
+        reason: "찰나의 차이로 다른 유저가 먼저 입력했습니다!",
+        senderId: socket.id,
+      });
+    }
+
     if (result.valid && wordDetail.exist) {
       room.usedWords.add({
-        word: trimmed,
+        word: word,
         senderId: socket.id,
         definitions: [wordDetail.definition],
       });
@@ -563,12 +572,11 @@ io.on("connection", (socket: Socket) => {
       }
 
       io.to(roomId).emit("word-validated", {
-        word: trimmed,
+        word: word,
         valid: true,
         reason: result.reason,
         senderId: socket.id,
         nickname: player?.nickname,
-
         players: Array.from(room.players.values()).map((p) => ({
           socketId: p.socketId,
           nickname: p.nickname,
