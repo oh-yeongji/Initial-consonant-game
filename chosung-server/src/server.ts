@@ -554,7 +554,7 @@ io.on("connection", (socket: Socket) => {
       return socket.emit("word-validated", {
         word,
         valid: false,
-        reason: "찰나의 차이로 다른 유저가 먼저 입력했습니다!",
+        reason: "이런! 상대방이 조금 더 빨랐습니다!",
         senderId: socket.id,
       });
     }
