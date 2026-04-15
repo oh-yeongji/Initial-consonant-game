@@ -8,23 +8,45 @@ export interface DictCheckResult {
   exist: boolean;
   definition: string;
   pos?: string;
+  debug?: {
+    total: number;
+    db?: number;
+    api?: number;
+    type: "HIT" | "MISS";
+  };
 }
 
 export async function checkWordDetail(word: string): Promise<DictCheckResult> {
   const cleanWord = word.trim();
   const API_KEY = process.env.KORDIC_API_KEY;
 
+  const totalStart = performance.now();
+
   try {
+    const dbStart = performance.now();
     const cached = await WordModel.findOne({ word: cleanWord });
+    const dbEnd = performance.now();
+
     if (
       cached &&
       cached.exist &&
       cached.definition &&
       cached.definition !== "뜻 정보 없음"
     ) {
-      return { exist: cached.exist, definition: cached.definition };
+      const totalEnd = performance.now();
+
+      return {
+        exist: cached.exist,
+        definition: cached.definition,
+        debug: {
+          total: totalEnd - totalStart,
+          db: dbEnd - dbStart,
+          type: "HIT",
+        },
+      };
     }
 
+    const apiStart = performance.now();
     const url = `https://stdict.korean.go.kr/api/search.do?key=${API_KEY}&req_type=xml&q=${encodeURIComponent(cleanWord)}`;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000);
@@ -32,6 +54,8 @@ export async function checkWordDetail(word: string): Promise<DictCheckResult> {
     const res = await fetch(url, { signal: controller.signal });
     const raw = await res.text();
     clearTimeout(timeoutId);
+
+    const apiEnd = performance.now();
 
     const parser = new XMLParser({
       ignoreAttributes: false,
@@ -70,10 +94,6 @@ export async function checkWordDetail(word: string): Promise<DictCheckResult> {
         }
         const finalPos = String(posInfo || "").trim();
 
-        if (pureWord === cleanWord) {
-          console.log(`[일치 단어 발견] ${pureWord} | 품사: ${finalPos}`);
-        }
-
         return pureWord === cleanWord && finalPos.includes("명사");
       });
 
@@ -109,9 +129,20 @@ export async function checkWordDetail(word: string): Promise<DictCheckResult> {
       { upsert: true, returnDocument: "after", setDefaultsOnInsert: true },
     );
 
-    return result;
+    const totalEnd = performance.now();
+
+    return {
+      ...result,
+      debug: {
+        total: totalEnd - totalStart,
+        api: apiEnd - apiStart,
+        type: "MISS",
+      },
+    };
   } catch (err: any) {
-    console.error(` [Error] ${cleanWord}:`, err.message);
-    return { exist: false, definition: "데이터 처리 오류" };
+    return {
+      exist: false,
+      definition: "데이터 처리 오류",
+    };
   }
 }
