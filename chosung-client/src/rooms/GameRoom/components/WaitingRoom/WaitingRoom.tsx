@@ -25,7 +25,7 @@ const WaitingRoom = ({ onClose }: WaitingRoomProps) => {
   const [gameInitData, setGameInitData] = useState<any>(null);
   const [gameVersion, setGameVersion] = useState(0);
 
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const chatInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const times = [30, 60, 90, 120];
@@ -158,7 +158,7 @@ const WaitingRoom = ({ onClose }: WaitingRoomProps) => {
   }, [users, myId]);
 
   useEffect(() => {
-    let timer: NodeJS.Timeout;
+    let timer: ReturnType<typeof setTimeout>;
     const isAllReady = users.length > 0 && users.every((u) => u.isReady);
 
     if (isOwner && users.length >= 2 && myReadyStatus && !isAllReady) {
