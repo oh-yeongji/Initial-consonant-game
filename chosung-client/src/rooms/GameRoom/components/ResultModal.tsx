@@ -120,7 +120,7 @@ const ResultModal = ({
 
         if (seconds <= 0) {
           clearInterval(timer);
-          handleExit();
+          // handleExit();
           return 0;
         }
         return seconds;

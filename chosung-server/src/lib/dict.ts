@@ -8,12 +8,7 @@ export interface DictCheckResult {
   exist: boolean;
   definition: string;
   pos?: string;
-  debug?: {
-    total: number;
-    db?: number;
-    api?: number;
-    type: "HIT" | "MISS";
-  };
+  processTime?: string;
 }
 
 export async function checkWordDetail(word: string): Promise<DictCheckResult> {
@@ -23,9 +18,7 @@ export async function checkWordDetail(word: string): Promise<DictCheckResult> {
   const totalStart = performance.now();
 
   try {
-    const dbStart = performance.now();
     const cached = await WordModel.findOne({ word: cleanWord });
-    const dbEnd = performance.now();
 
     if (
       cached &&
@@ -38,15 +31,10 @@ export async function checkWordDetail(word: string): Promise<DictCheckResult> {
       return {
         exist: cached.exist,
         definition: cached.definition,
-        debug: {
-          total: totalEnd - totalStart,
-          db: dbEnd - dbStart,
-          type: "HIT",
-        },
+        processTime: `${(totalEnd - totalStart).toFixed(4)}ms (Cache HIT)`,
       };
     }
 
-    const apiStart = performance.now();
     const url = `https://stdict.korean.go.kr/api/search.do?key=${API_KEY}&req_type=xml&q=${encodeURIComponent(cleanWord)}`;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000);
@@ -54,8 +42,6 @@ export async function checkWordDetail(word: string): Promise<DictCheckResult> {
     const res = await fetch(url, { signal: controller.signal });
     const raw = await res.text();
     clearTimeout(timeoutId);
-
-    const apiEnd = performance.now();
 
     const parser = new XMLParser({
       ignoreAttributes: false,
@@ -119,30 +105,22 @@ export async function checkWordDetail(word: string): Promise<DictCheckResult> {
       }
     }
 
-    if (!result.exist && result.definition === "") {
-      result.definition = "뜻 정보 없음";
-    }
-
     await WordModel.findOneAndUpdate(
       { word: cleanWord },
       { exist: result.exist, definition: result.definition },
-      { upsert: true, returnDocument: "after", setDefaultsOnInsert: true },
+      { upsert: true },
     );
 
     const totalEnd = performance.now();
+    result.processTime = `${(totalEnd - totalStart).toFixed(4)}ms (API Call)`;
 
-    return {
-      ...result,
-      debug: {
-        total: totalEnd - totalStart,
-        api: apiEnd - apiStart,
-        type: "MISS",
-      },
-    };
+    return result;
   } catch (err: any) {
+    const totalEnd = performance.now();
     return {
       exist: false,
       definition: "데이터 처리 오류",
+      processTime: `${(totalEnd - totalStart).toFixed(4)}ms (Error)`,
     };
   }
 }

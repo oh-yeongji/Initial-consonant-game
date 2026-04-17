@@ -61,6 +61,8 @@ const GameRoom = ({
   );
 
   const onWordValidated = useCallback((res: any) => {
+    console.log("서버에서 보냄:", res);
+
     setLastResult(res);
     if (!res.valid) return;
     if (res.senderId === socket.id) {

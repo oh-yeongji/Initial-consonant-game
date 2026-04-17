@@ -12,7 +12,6 @@ import { getRandomChosungPair } from "./game/chosung";
 import { validateWord } from "./game/gameService";
 import { MAX_TIME_CHANGE_COUNT } from "./types";
 import type { Room, UsedWord, Player, PlayerSnapshot } from "./types";
-
 const app = express();
 
 app.use(
@@ -35,11 +34,12 @@ const httpServer = createServer(app);
 connectDB().then(async () => {
   console.log("seed넣기성공");
   // seedWordsFromCSV();
+  console.log("DB 초기화 시작");
 
-  const totalCount = await WordModel.countDocuments();
-  console.log("-----------------------------------------");
-  console.log(`📊 현재 DB에 저장된 총 단어 수: ${totalCount}개`);
-  console.log("-----------------------------------------");
+  await WordModel.deleteMany({});
+  await Chat.deleteMany({});
+
+  console.log("DB 초기화 완료");
 });
 
 const io = new Server(httpServer, {
@@ -187,8 +187,17 @@ io.on("connection", (socket: Socket) => {
         message: "닉네임 정보가 없습니다.",
       });
     }
+    const TESTERS = ["테스터0411", "테스터0412"];
+    const MEASURE_MODE = true;
 
     const trimmedNickname = nickname.trim();
+
+    if (MEASURE_MODE && !TESTERS.includes(trimmedNickname)) {
+      socket.emit("nickname-error", {
+        message: "현재 점검 중입니다.",
+      });
+      return;
+    }
 
     const nicknameRegex = /^[가-힣a-zA-Z0-9\-_*]{2,8}$/;
 
@@ -312,6 +321,8 @@ io.on("connection", (socket: Socket) => {
     handleLeaveRoom(socket);
   });
 
+  const TESTERS = ["테스터0411", "테스터0412"];
+  const MEASURE_MODE = true;
   socket.on("join-room", async (data) => {
     const already = getRoomBySocket(socket.id);
     if (already) {
@@ -533,11 +544,14 @@ io.on("connection", (socket: Socket) => {
     const word = data.word.trim();
     if (room.endAt && Date.now() > room.endAt) return;
 
+    const player = room.players.get(socket.id);
+    const isTester = player && TESTERS.includes(player.nickname);
+
     const isAlreadyUsed = Array.from(room.usedWords).some(
       (used) => used.word === word,
     );
 
-    if (isAlreadyUsed) {
+    if (isAlreadyUsed && !(MEASURE_MODE && isTester)) {
       return socket.emit("word-validated", {
         word,
         valid: false,
@@ -550,30 +564,32 @@ io.on("connection", (socket: Socket) => {
       chosungPair: room.chosungPair,
       word: word,
       usedWords: new Set(Array.from(room.usedWords).map((uw) => uw.word)),
+      isTester: isTester,
+      measureMode: MEASURE_MODE,
     });
 
-    const wordDetail = await checkWordDetail(word);
+    console.log(`[성능측정] 단어: ${word}, 시간: ${result.processTime}`);
 
-    const secondCheckIdx = Array.from(room.usedWords).findIndex(
-      (uw) => uw.word === word,
-    );
-    if (secondCheckIdx !== -1) {
-      return socket.emit("word-validated", {
-        word,
-        valid: false,
-        reason: "이런! 상대방이 조금 더 빨랐습니다!",
-        senderId: socket.id,
-      });
-    }
+    if (result.valid) {
+      const secondCheckIdx = Array.from(room.usedWords).findIndex(
+        (uw) => uw.word === word,
+      );
 
-    if (result.valid && wordDetail.exist) {
+      if (secondCheckIdx !== -1 && !(MEASURE_MODE && isTester)) {
+        return socket.emit("word-validated", {
+          word,
+          valid: false,
+          reason: "이런! 상대방이 조금 더 빨랐습니다!",
+          senderId: socket.id,
+        });
+      }
+
       room.usedWords.add({
         word: word,
         senderId: socket.id,
-        definitions: [wordDetail.definition],
+        definitions: result.definitions ? [result.definitions as string] : [],
       });
 
-      const player = room.players.get(socket.id);
       if (player) {
         player.score += 10;
       }
@@ -584,6 +600,7 @@ io.on("connection", (socket: Socket) => {
         reason: result.reason,
         senderId: socket.id,
         nickname: player?.nickname,
+        processTime: result.processTime,
         players: Array.from(room.players.values()).map((p) => ({
           socketId: p.socketId,
           nickname: p.nickname,
@@ -595,6 +612,7 @@ io.on("connection", (socket: Socket) => {
         word,
         valid: false,
         reason: result.reason,
+        processTime: result.processTime,
         senderId: socket.id,
       });
     }

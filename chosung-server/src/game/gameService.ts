@@ -6,13 +6,26 @@ interface ValidateParams {
   chosungPair: [string, string];
   word: string;
   usedWords: Set<string>;
+  skipChosungCheck?: boolean;
+  isTester?: boolean;
+  measureMode?: boolean;
 }
 
+export interface ValidateResult {
+  valid: boolean;
+  reason?: string;
+  word?: string;
+  definitions?: string | string[];
+  processTime?: string;
+}
 export async function validateWord({
   chosungPair,
   word,
   usedWords,
-}: ValidateParams) {
+  skipChosungCheck = false,
+  isTester = false,
+  measureMode = false,
+}: ValidateParams): Promise<ValidateResult> {
   const trimmed = word.trim();
 
   if (!trimmed || trimmed === "") {
@@ -33,7 +46,7 @@ export async function validateWord({
     return { valid: false, reason: "한글만 입력 가능합니다." };
   }
 
-  if (usedWords.has(trimmed)) {
+  if (usedWords.has(trimmed) && !(measureMode && isTester)) {
     return {
       valid: false,
       reason: "이미 사용한 단어입니다.",
@@ -59,8 +72,14 @@ export async function validateWord({
       valid: false,
       reason: "사전에 없는 단어입니다.",
       definitions: [],
+      processTime: dictResult.processTime,
     };
   }
 
-  return { valid: true, word: trimmed, definitions: definition };
+  return {
+    valid: true,
+    word: trimmed,
+    definitions: definition,
+    processTime: dictResult.processTime,
+  };
 }
