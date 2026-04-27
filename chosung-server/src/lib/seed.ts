@@ -1,13 +1,13 @@
 import fs from "fs";
 import path from "path";
 // @ts-ignore
-import csv from "csv-parser";
 import { WordModel } from "../models/Word";
 
 const CSV_FILE_NAME = "국립국어원_기본어휘.csv";
 const csvFilePath = path.join(__dirname, "../data", CSV_FILE_NAME);
 
-export const seedWordsFromCSV = () => {
+export const seedWordsFromCSV = async () => {
+  const { default: csv } = await import("csv-parser");
   const results: any[] = [];
 
   if (!fs.existsSync(csvFilePath)) {

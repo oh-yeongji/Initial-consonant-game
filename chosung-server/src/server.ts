@@ -628,7 +628,7 @@ app.get("/benchmark-all", async (req: any, res: any) => {
 
     if (count === 0) {
       console.log("📢 데이터가 비어있어 CSV 시딩을 시작합니다...");
-      seedWordsFromCSV();
+      await seedWordsFromCSV();
 
       console.log("⏳ 데이터 임포트 대기 중 (5초)...");
       await new Promise((resolve) => setTimeout(resolve, 5000));
