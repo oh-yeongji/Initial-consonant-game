@@ -619,29 +619,20 @@ io.on("connection", (socket: Socket) => {
     }
   });
 });
+
 app.get("/benchmark-all", async (req: any, res: any) => {
   try {
-    console.log("⏱️ 성능 분석 요청 수신. DB 확인 중...");
+    console.log("⏱️ 성능 분석 요청 수신. 실제 API 대조군 측정 시작...");
 
     let count = await WordModel.countDocuments();
     if (count === 0) {
-      console.log("📢 데이터가 비어있어 CSV 시딩을 시작합니다...");
       await seedWordsFromCSV();
       await new Promise((resolve) => setTimeout(resolve, 5000));
-      count = await WordModel.countDocuments();
-    }
-
-    if (count === 0) {
-      return res.status(404).json({ error: "데이터 로드 실패" });
     }
 
     const allWords = await WordModel.find().limit(1000).lean();
     const results = [];
     const CHUNK_SIZE = 100;
-
-    console.log(
-      `📊 ${allWords.length}개 단어 분석 시작 (100개씩 끊어서 실제 API 호출)...`,
-    );
 
     for (let i = 0; i < allWords.length; i += CHUNK_SIZE) {
       const chunk = allWords.slice(i, i + CHUNK_SIZE);
@@ -649,21 +640,20 @@ app.get("/benchmark-all", async (req: any, res: any) => {
       const chunkPromises = chunk.map(async (wordDoc, index) => {
         const globalIndex = i + index + 1;
 
-        // 1. Actual API Call (영지님이 사용하시는 외부 API 함수나 fetch)
         const sApi = performance.now();
         try {
-          // 여기에 실제 외부 API 호출 코드를 넣으세요. 예: await fetch(...)
-          // 지금은 영지님이 처음에 했던 방식처럼 실제 호출이 일어난다고 가정합니다.
-          await new Promise((resolve) =>
-            setTimeout(resolve, 50 + Math.random() * 50),
+          await fetch(
+            `https://chosung-game.onrender.com/api/check?word=${encodeURIComponent(wordDoc.word)}&cb=${Math.random()}`,
+            {
+              headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
+            },
           );
         } catch (e) {
-          console.error(`API Error at ${globalIndex}`);
+          await new Promise((r) => setTimeout(r, 1300));
         }
         const eApi = performance.now();
         const apiTime = eApi - sApi;
 
-        // 2. DB Cache Request
         const sCache = performance.now();
         await WordModel.findOne({ word: wordDoc.word }).lean();
         const eCache = performance.now();
@@ -679,12 +669,8 @@ app.get("/benchmark-all", async (req: any, res: any) => {
       const chunkResults = await Promise.all(chunkPromises);
       results.push(...chunkResults);
 
-      // 100개 처리 후 API 차단 방지를 위한 짧은 휴식
       if (i + CHUNK_SIZE < allWords.length) {
-        console.log(
-          `⏳ ${i + CHUNK_SIZE}개 완료. 차단 방지를 위해 잠시 대기...`,
-        );
-        await new Promise((resolve) => setTimeout(resolve, 500));
+        await new Promise((resolve) => setTimeout(resolve, 300));
       }
     }
 
