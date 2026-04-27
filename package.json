@@ -1,6 +1,11 @@
 {
+  "name": "initial-consonant-game",
+  "version": "1.0.0",
+  "type": "module",
   "dependencies": {
     "csv-parser": "^3.2.0",
+    "dotenv": "^17.4.2",
+    "mongoose": "^9.5.0",
     "react-router-dom": "^7.13.0"
   }
 }

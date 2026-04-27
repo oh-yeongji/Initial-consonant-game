@@ -21,9 +21,9 @@ gameRouter.get("/check-word", async (req, res) => {
   }
 
   // 2. 중복검사
-  if (usedWords.has(trimmed)) {
-    return res.json({ valid: false });
-  }
+  // if (usedWords.has(trimmed)) {
+  //   return res.json({ valid: false });
+  // }
 
   // 3. 단어의 존재여부
   const dictResult = await checkWordDetail(trimmed);
