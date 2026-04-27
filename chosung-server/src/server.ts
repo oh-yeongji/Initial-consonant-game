@@ -1,5 +1,5 @@
 import express from "express";
-import mongoose from "mongoose";
+import { seedWordsFromCSV } from "./lib/seed";
 import { createServer } from "http";
 import cors from "cors";
 import { Server, Socket } from "socket.io";
@@ -624,21 +624,29 @@ app.get("/benchmark-all", async (req: any, res: any) => {
   try {
     console.log("⏱️ 성능 분석 요청 수신. DB 확인 중...");
 
-    const count = await WordModel.countDocuments();
-    console.log(`현재 DB 내 단어 수: ${count}개`);
+    let count = await WordModel.countDocuments();
+
+    if (count === 0) {
+      console.log("📢 데이터가 비어있어 CSV 시딩을 시작합니다...");
+      seedWordsFromCSV();
+
+      console.log("⏳ 데이터 임포트 대기 중 (5초)...");
+      await new Promise((resolve) => setTimeout(resolve, 5000));
+
+      count = await WordModel.countDocuments();
+    }
 
     if (count === 0) {
       return res.status(404).json({
-        error:
-          "데이터가 없습니다. seed 로직에서 deleteMany가 실행되었는지 확인!",
-        hint: "Render 로그 상단에서 'seed넣기성공' 이후에 'DB 초기화'가 떴는지 볼것.",
+        error: "데이터가 아직 로드되지 않았습니다.",
+        hint: "잠시 후 새로고침을 눌러보세요. CSV를 읽는 데 시간이 걸릴 수 있습니다.",
       });
     }
 
     const allWords = await WordModel.find().limit(1000);
     const results = [];
 
-    console.log("📊 전수 분석 프로세스 시작...");
+    console.log(`📊 ${allWords.length}개 단어로 전수 분석 프로세스 시작...`);
 
     for (const wordDoc of allWords) {
       const startApi = performance.now();
@@ -660,18 +668,15 @@ app.get("/benchmark-all", async (req: any, res: any) => {
     const avgApi = totalApi / results.length;
     const avgCache = totalCache / results.length;
 
-    const summary = {
+    res.json({
       Total: results.length,
       AVG_API: `${avgApi.toFixed(2)}ms`,
       AVG_Cache: `${avgCache.toFixed(4)}ms`,
       Boost: `${(avgApi / avgCache).toFixed(0)}x Faster`,
-    };
-
-    console.table([summary]);
-    res.json(summary);
+    });
   } catch (err) {
     console.error("Benchmark Error:", err);
-    res.status(500).json({ error: "서버 내부 오류 발생" });
+    res.status(500).json({ error: "서버 오류" });
   }
 });
 
