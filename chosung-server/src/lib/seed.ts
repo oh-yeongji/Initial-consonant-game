@@ -1,13 +1,13 @@
 import fs from "fs";
 import path from "path";
-// @ts-ignore
 import { WordModel } from "../models/Word";
 
 const CSV_FILE_NAME = "국립국어원_기본어휘.csv";
 const csvFilePath = path.join(__dirname, "../data", CSV_FILE_NAME);
 
 export const seedWordsFromCSV = async () => {
-  const { default: csv } = await import("csv-parser");
+  // @ts-ignore
+  const csvParser = (await import("csv-parser")).default as any;
   const results: any[] = [];
 
   if (!fs.existsSync(csvFilePath)) {
@@ -20,7 +20,7 @@ export const seedWordsFromCSV = async () => {
 
   fs.createReadStream(csvFilePath)
     .pipe(
-      csv({
+      csvParser({
         mapHeaders: ({ header }: { header: string }) => {
           if (header === "수준") return "level";
           if (header === "동형어번호") return "num";
