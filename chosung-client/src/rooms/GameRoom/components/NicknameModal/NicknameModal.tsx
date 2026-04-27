@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { socket } from "@/socket/socket";
 import CommonHeader from "../CommonHeader/CommonHeader";
 import styles from "./NicknameModal.module.css";
@@ -13,6 +13,12 @@ const NicknameModal = ({ onClose, onConfirm }: NicknameModalProps) => {
   const [isChecked, setIsChecked] = useState(false);
   const [isAvailable, setIsAvailable] = useState(false);
   const [serverMessage, setServerMessage] = useState("");
+
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
 
   const handleCheckDup = () => {
     const trimmed = nickname.trim();
@@ -30,6 +36,20 @@ const NicknameModal = ({ onClose, onConfirm }: NicknameModalProps) => {
       return;
     }
     onConfirm(nickname.trim());
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    e.stopPropagation();
+
+    if (e.key === "Enter") {
+      e.preventDefault();
+
+      if (!isChecked || !isAvailable) {
+        handleCheckDup();
+      } else {
+        handleConfirmClick();
+      }
+    }
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -52,6 +72,7 @@ const NicknameModal = ({ onClose, onConfirm }: NicknameModalProps) => {
       socket.off("nickname-check-result");
     };
   }, []);
+
   return (
     <div className={styles.nicknameModalOverlay}>
       <div className={styles.nicknameModalwindow}>
@@ -59,10 +80,12 @@ const NicknameModal = ({ onClose, onConfirm }: NicknameModalProps) => {
         <div className={styles.nicknameModalContent}>
           <div className={styles.nicknameInputContainer}>
             <input
+              ref={inputRef}
               type="text"
               placeholder="닉네임 입력"
               value={nickname}
               onChange={handleInputChange}
+              onKeyDown={handleKeyDown}
             />
             <button
               className={`${styles.dupCheck} ${isChecked && isAvailable ? styles.checked : ""}`}
