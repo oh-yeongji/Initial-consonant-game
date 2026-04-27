@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 // @ts-ignore
-import csv from "csv-parser";
+import * as csv from "csv-parser";
 import { WordModel } from "../models/Word";
 
 const CSV_FILE_NAME = "국립국어원_기본어휘.csv";
