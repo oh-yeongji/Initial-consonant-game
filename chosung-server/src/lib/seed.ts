@@ -3,21 +3,21 @@ import path from "path";
 import { WordModel } from "../models/Word";
 
 const CSV_FILE_NAME = "국립국어원_기본어휘.csv";
-const csvFilePath = path.join(__dirname, "../data", CSV_FILE_NAME);
+
+const csvFilePath = path.join(process.cwd(), "src", "data", CSV_FILE_NAME);
 
 export const seedWordsFromCSV = async () => {
-  // @ts-ignore
-  const csvParser = (await import("csv-parser")).default as any;
+  const csvModule = await import("csv-parser");
+  const csvParser = csvModule.default || csvModule;
+
   const results: any[] = [];
 
   if (!fs.existsSync(csvFilePath)) {
-    console.error(`[에러] CSV 파일을 찾을 수 없습니다: ${csvFilePath}`);
+    console.error(`[에러] 파일을 찾을 수 없음: ${csvFilePath}`);
     return;
   }
 
-  console.log("-----------------------------------------");
-  console.log("🚀 국립국어원 단어 데이터 임포트 시작...");
-
+  console.log("🚀 데이터 임포트 시작...");
   fs.createReadStream(csvFilePath)
     .pipe(
       csvParser({
