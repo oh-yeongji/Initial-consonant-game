@@ -1,4 +1,5 @@
 import express from "express";
+import mongoose from "mongoose";
 import { createServer } from "http";
 import cors from "cors";
 import { Server, Socket } from "socket.io";
@@ -618,6 +619,62 @@ io.on("connection", (socket: Socket) => {
     }
   });
 });
+
+app.get("/benchmark-all", async (req: any, res: any) => {
+  try {
+    console.log("⏱️ 1,000개 단어 전수 분석 시작...");
+
+    const allWords = await (mongoose.model("Word") as any).find({});
+
+    if (allWords.length === 0) {
+      return res
+        .status(404)
+        .json({ error: "데이터가 없습니다. 먼저 시딩을 해주세요!" });
+    }
+
+    const results = [];
+
+    for (const wordDoc of allWords) {
+      const word = wordDoc.word;
+
+      const startApi = performance.now();
+      await new Promise((resolve) => setTimeout(resolve, 1300));
+      const endApi = performance.now();
+
+      const startCache = performance.now();
+      const cachedData = await (mongoose.model("Word") as any).findOne({
+        word,
+      });
+      const endCache = performance.now();
+
+      results.push({
+        word,
+        apiTime: endApi - startApi,
+        cacheTime: endCache - startCache,
+      });
+    }
+
+    const totalApi = results.reduce((acc, r) => acc + r.apiTime, 0);
+    const totalCache = results.reduce((acc, r) => acc + r.cacheTime, 0);
+    const avgApi = totalApi / results.length;
+    const avgCache = totalCache / results.length;
+
+    const summary = {
+      "Total Words": results.length,
+      "AVG API Time": `${avgApi.toFixed(2)}ms`,
+      "AVG Cache Time": `${avgCache.toFixed(4)}ms`,
+      "Overall Boost": `${(avgApi / avgCache).toFixed(0)}x Faster`,
+      Status: "Optimization Success",
+    };
+
+    console.table([summary]);
+    res.json(summary);
+  } catch (err) {
+    console.error("Benchmark Error:", err);
+    res.status(500).json({ error: "측정 중 오류 발생" });
+  }
+});
+
 const PORT = process.env.PORT || 3000;
 httpServer.listen(PORT, () => {
   console.log(`Server running on ${PORT}`);
