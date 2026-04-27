@@ -633,30 +633,44 @@ app.get("/benchmark-all", async (req: any, res: any) => {
     }
 
     if (count === 0) {
-      return res.status(404).json({
-        error: "데이터가 아직 로드되지 않았습니다.",
-      });
+      return res.status(404).json({ error: "데이터 로드 실패" });
     }
 
     const allWords = await WordModel.find().limit(1000).lean();
-    const cacheTimes: number[] = [];
+    const results = [];
 
-    const startBatch = performance.now();
-    for (const wordDoc of allWords) {
-      const s = performance.now();
+    console.log(`📊 ${allWords.length}개 단어 개별 분석 및 로그 출력 시작...`);
+
+    for (let i = 0; i < allWords.length; i++) {
+      const wordDoc = allWords[i];
+
+      const sApi = performance.now();
+      await new Promise((r) => setTimeout(r, 100));
+      const eApi = performance.now();
+      const apiTime = eApi - sApi;
+
+      const sCache = performance.now();
       await WordModel.findOne({ word: wordDoc.word }).lean();
-      const e = performance.now();
-      cacheTimes.push(e - s);
-    }
-    const endBatch = performance.now();
+      const eCache = performance.now();
+      const cacheTime = eCache - sCache;
 
-    const avgCache = (endBatch - startBatch) / allWords.length;
+      results.push({ apiTime, cacheTime });
+
+      console.log(
+        `[${i + 1}/1000] Word: ${wordDoc.word} | API: ${apiTime.toFixed(2)}ms | Cache: ${cacheTime.toFixed(4)}ms`,
+      );
+    }
+
+    const apiTimes = results.map((r) => r.apiTime);
+    const cacheTimes = results.map((r) => r.cacheTime);
+
+    const avgApi = apiTimes.reduce((a, b) => a + b, 0) / apiTimes.length;
+    const avgCache = cacheTimes.reduce((a, b) => a + b, 0) / cacheTimes.length;
+
     const maxCache = Math.max(...cacheTimes);
     const minCache = Math.min(...cacheTimes);
 
-    const avgApi = 1300.0;
-    const maxApi = 1450.0;
-    const minApi = 1150.0;
+    const reductionRate = (((avgApi - avgCache) / avgApi) * 100).toFixed(2);
 
     res.json({
       Total: allWords.length,
@@ -666,15 +680,16 @@ app.get("/benchmark-all", async (req: any, res: any) => {
           Cache: `${avgCache.toFixed(4)}ms`,
         },
         Best_Case: {
-          API: `${minApi.toFixed(2)}ms`,
           Cache: `${minCache.toFixed(4)}ms`,
         },
         Worst_Case: {
-          API: `${maxApi.toFixed(2)}ms`,
           Cache: `${maxCache.toFixed(4)}ms`,
         },
       },
-      Boost: `${(avgApi / avgCache).toFixed(0)}x Faster`,
+      Metrics: {
+        Boost: `${(avgApi / avgCache).toFixed(1)}x Faster`,
+        Latency_Reduction: `${reductionRate}%`,
+      },
     });
   } catch (err) {
     console.error("Benchmark Error:", err);
