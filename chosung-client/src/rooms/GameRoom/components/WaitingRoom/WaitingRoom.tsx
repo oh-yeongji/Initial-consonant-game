@@ -39,6 +39,10 @@ const WaitingRoom = ({ onClose }: WaitingRoomProps) => {
   const nicknameRef = useRef("");
 
   useEffect(() => {
+    chatInputRef.current?.focus();
+  }, []);
+
+  useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
