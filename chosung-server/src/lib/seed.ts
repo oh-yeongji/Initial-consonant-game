@@ -1,10 +1,7 @@
 import fs from "fs";
 import path from "path";
-import { createRequire } from "module";
 // @ts-ignore
-const csvRequire = createRequire(import.meta.url);
-const csv = csvRequire("csv-parser");
-
+import csv from "csv-parser";
 import { WordModel } from "../models/Word";
 
 const CSV_FILE_NAME = "국립국어원_기본어휘.csv";
