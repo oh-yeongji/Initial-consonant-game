@@ -1,5 +1,4 @@
 import express from "express";
-import { seedWordsFromCSV } from "./lib/seed";
 import { createServer } from "http";
 import cors from "cors";
 import { Server, Socket } from "socket.io";
@@ -188,18 +187,8 @@ io.on("connection", (socket: Socket) => {
         message: "닉네임 정보가 없습니다.",
       });
     }
-    const TESTERS = ["테스터0411", "테스터0412"];
-    const MEASURE_MODE = true;
 
     const trimmedNickname = nickname.trim();
-
-    if (MEASURE_MODE && !TESTERS.includes(trimmedNickname)) {
-      socket.emit("nickname-error", {
-        message: "현재 점검 중입니다.",
-      });
-      return;
-    }
-
     const nicknameRegex = /^[가-힣a-zA-Z0-9\-_*]{2,8}$/;
 
     if (!nicknameRegex.test(trimmedNickname)) {
@@ -322,8 +311,6 @@ io.on("connection", (socket: Socket) => {
     handleLeaveRoom(socket);
   });
 
-  const TESTERS = ["테스터0411", "테스터0412"];
-  const MEASURE_MODE = true;
   socket.on("join-room", async (data) => {
     const already = getRoomBySocket(socket.id);
     if (already) {
@@ -546,13 +533,12 @@ io.on("connection", (socket: Socket) => {
     if (room.endAt && Date.now() > room.endAt) return;
 
     const player = room.players.get(socket.id);
-    const isTester = player && TESTERS.includes(player.nickname);
 
     const isAlreadyUsed = Array.from(room.usedWords).some(
       (used) => used.word === word,
     );
 
-    if (isAlreadyUsed && !(MEASURE_MODE && isTester)) {
+    if (isAlreadyUsed) {
       return socket.emit("word-validated", {
         word,
         valid: false,
@@ -565,18 +551,14 @@ io.on("connection", (socket: Socket) => {
       chosungPair: room.chosungPair,
       word: word,
       usedWords: new Set(Array.from(room.usedWords).map((uw) => uw.word)),
-      isTester: isTester,
-      measureMode: MEASURE_MODE,
     });
-
-    console.log(`[성능측정] 단어: ${word}, 시간: ${result.processTime}`);
 
     if (result.valid) {
       const secondCheckIdx = Array.from(room.usedWords).findIndex(
         (uw) => uw.word === word,
       );
 
-      if (secondCheckIdx !== -1 && !(MEASURE_MODE && isTester)) {
+      if (secondCheckIdx !== -1) {
         return socket.emit("word-validated", {
           word,
           valid: false,
@@ -618,100 +600,6 @@ io.on("connection", (socket: Socket) => {
       });
     }
   });
-});
-
-app.get("/benchmark-all", async (req: any, res: any) => {
-  try {
-    console.log("⏱️ 성능 분석 요청 수신. 실제 API 대조군 측정 시작...");
-
-    let count = await WordModel.countDocuments();
-    if (count === 0) {
-      await seedWordsFromCSV();
-      await new Promise((resolve) => setTimeout(resolve, 5000));
-    }
-
-    const allWords = await WordModel.find().limit(1000).lean();
-    const results = [];
-    const CHUNK_SIZE = 100;
-
-    for (let i = 0; i < allWords.length; i += CHUNK_SIZE) {
-      const chunk = allWords.slice(i, i + CHUNK_SIZE);
-
-      const chunkPromises = chunk.map(async (wordDoc, index) => {
-        const globalIndex = i + index + 1;
-
-        const sApi = performance.now();
-        try {
-          await fetch(
-            `https://chosung-game.onrender.com/api/check?word=${encodeURIComponent(wordDoc.word)}&cb=${Math.random()}`,
-            {
-              headers: { "Cache-Control": "no-cache", Pragma: "no-cache" },
-            },
-          );
-        } catch (e) {
-          await new Promise((r) => setTimeout(r, 1300));
-        }
-        const eApi = performance.now();
-        const apiTime = eApi - sApi;
-
-        const sCache = performance.now();
-        await WordModel.findOne({ word: wordDoc.word }).lean();
-        const eCache = performance.now();
-        const cacheTime = eCache - sCache;
-
-        console.log(
-          `[${globalIndex}/1000] Word: ${wordDoc.word} | API: ${apiTime.toFixed(2)}ms | Cache: ${cacheTime.toFixed(4)}ms`,
-        );
-
-        return { apiTime, cacheTime };
-      });
-
-      const chunkResults = await Promise.all(chunkPromises);
-      results.push(...chunkResults);
-
-      if (i + CHUNK_SIZE < allWords.length) {
-        await new Promise((resolve) => setTimeout(resolve, 300));
-      }
-    }
-
-    const apiTimes = results.map((r) => r.apiTime);
-    const cacheTimes = results.map((r) => r.cacheTime);
-
-    const avgApi = apiTimes.reduce((a, b) => a + b, 0) / apiTimes.length;
-    const avgCache = cacheTimes.reduce((a, b) => a + b, 0) / cacheTimes.length;
-
-    const maxApi = Math.max(...apiTimes);
-    const minApi = Math.min(...apiTimes);
-    const maxCache = Math.max(...cacheTimes);
-    const minCache = Math.min(...cacheTimes);
-
-    const reductionRate = (((avgApi - avgCache) / avgApi) * 100).toFixed(2);
-
-    res.json({
-      Total: results.length,
-      Performance: {
-        Average: {
-          API: `${avgApi.toFixed(2)}ms`,
-          Cache: `${avgCache.toFixed(4)}ms`,
-        },
-        Best_Case: {
-          API: `${minApi.toFixed(2)}ms`,
-          Cache: `${minCache.toFixed(4)}ms`,
-        },
-        Worst_Case: {
-          API: `${maxApi.toFixed(2)}ms`,
-          Cache: `${maxCache.toFixed(4)}ms`,
-        },
-      },
-      Metrics: {
-        Boost: `${(avgApi / avgCache).toFixed(1)}x Faster`,
-        Latency_Reduction: `${reductionRate}%`,
-      },
-    });
-  } catch (err) {
-    console.error("Benchmark Error:", err);
-    res.status(500).json({ error: "서버 오류" });
-  }
 });
 
 const PORT = process.env.PORT || 3000;

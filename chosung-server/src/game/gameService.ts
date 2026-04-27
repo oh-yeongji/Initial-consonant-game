@@ -7,8 +7,6 @@ interface ValidateParams {
   word: string;
   usedWords: Set<string>;
   skipChosungCheck?: boolean;
-  isTester?: boolean;
-  measureMode?: boolean;
 }
 
 export interface ValidateResult {
@@ -23,8 +21,6 @@ export async function validateWord({
   word,
   usedWords,
   skipChosungCheck = false,
-  isTester = false,
-  measureMode = false,
 }: ValidateParams): Promise<ValidateResult> {
   const trimmed = word.trim();
 
@@ -46,7 +42,7 @@ export async function validateWord({
     return { valid: false, reason: "한글만 입력 가능합니다." };
   }
 
-  if (usedWords.has(trimmed) && !(measureMode && isTester)) {
+  if (usedWords.has(trimmed)) {
     return {
       valid: false,
       reason: "이미 사용한 단어입니다.",
