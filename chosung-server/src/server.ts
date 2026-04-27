@@ -37,7 +37,7 @@ connectDB().then(async () => {
   // seedWordsFromCSV();
   console.log("DB 초기화 시작");
 
-  await WordModel.deleteMany({});
+  // await WordModel.deleteMany({});
   await Chat.deleteMany({});
 
   console.log("DB 초기화 완료");
@@ -624,7 +624,7 @@ app.get("/benchmark-all", async (req: any, res: any) => {
   try {
     console.log("⏱️ 1,000개 단어 전수 분석 시작...");
 
-    const allWords = await (mongoose.model("Word") as any).find({});
+    const allWords = await WordModel.find({});
 
     if (allWords.length === 0) {
       return res

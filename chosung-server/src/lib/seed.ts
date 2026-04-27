@@ -56,7 +56,7 @@ export const seedWordsFromCSV = () => {
 
         console.log(`✨ 중복 제거 후 최종 단어 수: ${uniqueResults.length}개`);
 
-        await WordModel.deleteMany({});
+        // await WordModel.deleteMany({});
 
         await WordModel.insertMany(uniqueResults, { ordered: false });
       } catch (err) {
