@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { checkWord } from "@api/game";
 import styles from "./CenterPlay.module.css";
 import Timer from "../Timer";
@@ -25,8 +25,17 @@ const CenterPlay = ({
 }: Props) => {
   const [word, setWord] = useState("");
   const [alert, setAlert] = useState<string | null>(null);
-
+  const wordInputRef = useRef<HTMLInputElement>(null);
   const isTimeOver = state !== "PLAY" || timeLeftMs <= 0;
+
+  useEffect(() => {
+    if (!isTimeOver) {
+      const timer = setTimeout(() => {
+        wordInputRef.current?.focus();
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [isTimeOver]);
 
   const showAlert = useCallback((msg: string) => {
     setAlert(msg);
@@ -73,6 +82,7 @@ const CenterPlay = ({
         <div className={styles.inputContainer}>
           <div className={styles.inputGroup}>
             <input
+              ref={wordInputRef}
               type="text"
               className={styles.wordInput}
               value={word}
