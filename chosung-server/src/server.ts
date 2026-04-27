@@ -622,33 +622,34 @@ io.on("connection", (socket: Socket) => {
 
 app.get("/benchmark-all", async (req: any, res: any) => {
   try {
-    console.log("⏱️ 1,000개 단어 전수 분석 시작...");
+    console.log("⏱️ 성능 분석 요청 수신. DB 확인 중...");
 
-    const allWords = await WordModel.find({});
+    const count = await WordModel.countDocuments();
+    console.log(`현재 DB 내 단어 수: ${count}개`);
 
-    if (allWords.length === 0) {
-      return res
-        .status(404)
-        .json({ error: "데이터가 없습니다. 먼저 시딩을 해주세요!" });
+    if (count === 0) {
+      return res.status(404).json({
+        error:
+          "데이터가 없습니다. seed 로직에서 deleteMany가 실행되었는지 확인!",
+        hint: "Render 로그 상단에서 'seed넣기성공' 이후에 'DB 초기화'가 떴는지 볼것.",
+      });
     }
 
+    const allWords = await WordModel.find().limit(1000);
     const results = [];
 
-    for (const wordDoc of allWords) {
-      const word = wordDoc.word;
+    console.log("📊 전수 분석 프로세스 시작...");
 
+    for (const wordDoc of allWords) {
       const startApi = performance.now();
-      await new Promise((resolve) => setTimeout(resolve, 1300));
+      await new Promise((resolve) => setTimeout(resolve, 100));
       const endApi = performance.now();
 
       const startCache = performance.now();
-      const cachedData = await (mongoose.model("Word") as any).findOne({
-        word,
-      });
+      await WordModel.findOne({ word: wordDoc.word });
       const endCache = performance.now();
 
       results.push({
-        word,
         apiTime: endApi - startApi,
         cacheTime: endCache - startCache,
       });
@@ -660,18 +661,17 @@ app.get("/benchmark-all", async (req: any, res: any) => {
     const avgCache = totalCache / results.length;
 
     const summary = {
-      "Total Words": results.length,
-      "AVG API Time": `${avgApi.toFixed(2)}ms`,
-      "AVG Cache Time": `${avgCache.toFixed(4)}ms`,
-      "Overall Boost": `${(avgApi / avgCache).toFixed(0)}x Faster`,
-      Status: "Optimization Success",
+      Total: results.length,
+      AVG_API: `${avgApi.toFixed(2)}ms`,
+      AVG_Cache: `${avgCache.toFixed(4)}ms`,
+      Boost: `${(avgApi / avgCache).toFixed(0)}x Faster`,
     };
 
     console.table([summary]);
     res.json(summary);
   } catch (err) {
     console.error("Benchmark Error:", err);
-    res.status(500).json({ error: "측정 중 오류 발생" });
+    res.status(500).json({ error: "서버 내부 오류 발생" });
   }
 });
 
