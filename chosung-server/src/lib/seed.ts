@@ -3,12 +3,11 @@ import path from "path";
 import { WordModel } from "../models/Word";
 
 const CSV_FILE_NAME = "국립국어원_기본어휘.csv";
-
 const csvFilePath = path.join(process.cwd(), "src", "data", CSV_FILE_NAME);
 
 export const seedWordsFromCSV = async () => {
-  const csvModule = await import("csv-parser");
-  const csvParser = csvModule.default || csvModule;
+  const csvParserModule: any = await import("csv-parser" as string);
+  const csvParser = csvParserModule.default || csvParserModule;
 
   const results: any[] = [];
 
@@ -18,6 +17,7 @@ export const seedWordsFromCSV = async () => {
   }
 
   console.log("🚀 데이터 임포트 시작...");
+
   fs.createReadStream(csvFilePath)
     .pipe(
       csvParser({
@@ -53,14 +53,11 @@ export const seedWordsFromCSV = async () => {
         const uniqueResults = Array.from(
           new Map(results.map((item) => [item.word, item])).values(),
         );
-
-        console.log(`✨ 중복 제거 후 최종 단어 수: ${uniqueResults.length}개`);
-
-        // await WordModel.deleteMany({});
-
+        console.log(`✨ 최종 단어 수: ${uniqueResults.length}개`);
         await WordModel.insertMany(uniqueResults, { ordered: false });
+        console.log("✅ DB 저장 완료!");
       } catch (err) {
-        console.error(" DB 저장 중 오류 발생:", err);
+        console.error("DB 저장 중 오류:", err);
       }
     });
 };
