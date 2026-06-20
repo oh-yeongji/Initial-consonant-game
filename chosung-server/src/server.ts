@@ -476,6 +476,22 @@ io.on("connection", (socket: Socket) => {
 
     player.isReady = !player.isReady;
 
+    let systemMessaga = "";
+    if (player.isOwner) {
+      systemMessaga = player.isReady
+        ? "방장이 시작 버튼을 눌렀습니다."
+        : "방장이 취소 버튼을 눌렀습니다.";
+    } else {
+      systemMessaga = player.isReady
+        ? `${player.nickname}님이 시작 버튼을 눌렀습니다.`
+        : `${player.nickname}님이 취소 버튼을 눌렀습니다.`;
+    }
+    io.to(roomId).emit("receive-chat", {
+      socketId: "system",
+      nickname: "",
+      message: systemMessaga,
+      type: "system",
+    });
     const players = Array.from(room.players.values());
     const allReady = players.every((p) => p.isReady);
 
@@ -519,6 +535,12 @@ io.on("connection", (socket: Socket) => {
 
       room.status = "WAIT";
       io.to(roomId).emit("room-wait");
+      io.to(roomId).emit("receive-chat", {
+        socketId: "system",
+        nickname: "",
+        message: "방장이 강제시작을 취소했습니다.",
+        type: "system ",
+      });
     }
   });
 
