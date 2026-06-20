@@ -129,7 +129,7 @@ const GuideModal = ({
                   backgroundPosition: "center",
                 }}
               />
-              ▶ 다시 보지 않기 (S)
+              ▶ 다시 보지 않기 (S / Spacebar)
             </label>
             <button style={styles.confirmBtn} onClick={() => onConfirm(skip)}>
               확인 (Enter)
