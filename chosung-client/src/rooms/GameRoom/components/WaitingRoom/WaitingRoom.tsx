@@ -232,6 +232,13 @@ const WaitingRoom = ({ onClose }: WaitingRoomProps) => {
                 transform: "none",
                 margin: 0,
               }}
+              onClose={() => {
+                if (isOwner && startTrigger !== "ALL_READY") {
+                  socket.emit("cancel-force-start");
+                  setShowReadyPopup(false);
+                }
+              }}
+              isCloseDisabled={startTrigger === "ALL_READY" ? true : !isOwner}
               title="준비..."
             />
             <div className={styles.readyTextContainer}>
@@ -251,6 +258,13 @@ const WaitingRoom = ({ onClose }: WaitingRoomProps) => {
             <CommonHeader
               style={{ position: "relative", width: "100%" }}
               title="데이터 동기화중..."
+              onClose={() => {
+                if (isOwner && startTrigger !== "ALL_READY") {
+                  socket.emit("cancel-force-start");
+                  setShowReadyPopup(false);
+                }
+              }}
+              isCloseDisabled={startTrigger === "ALL_READY" ? true : !isOwner}
             />
             <div className={styles.windowContent}>
               <p className={styles.infoText}>게임 시작까지...</p>
