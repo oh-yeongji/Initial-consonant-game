@@ -87,14 +87,16 @@ const App = () => {
   }, []);
 
   useEffect(() => {
+    if (entered || activeModal !== "none") return;
+
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Enter" && !entered) {
-        handleEnterClick();
-      }
+      e.preventDefault();
+      handleEnterClick();
     };
-    window.addEventListener("keydown", handleKeyDown);
+
+    window.addEventListener("keydown", handleKeyDown, { once: true });
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [entered]);
+  }, [entered, activeModal]);
 
   return (
     <div className="desktop-screen">
@@ -115,7 +117,7 @@ const App = () => {
               <div>
                 {activeModal === "none" && (
                   <button className="enterRoom" onClick={handleEnterClick}>
-                    방 입장하기(Enter)
+                    PRESS ANY KEY
                   </button>
                 )}
               </div>
