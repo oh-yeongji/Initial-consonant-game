@@ -50,6 +50,17 @@ const WaitingRoom = ({ onClose }: WaitingRoomProps) => {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Enter" && e.ctrlKey) {
+        e.preventDefault();
+        socket.emit("toggle-ready");
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         if (
           startCountdown !== null &&
