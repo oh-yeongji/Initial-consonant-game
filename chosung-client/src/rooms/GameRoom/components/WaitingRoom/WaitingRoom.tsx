@@ -39,7 +39,23 @@ const WaitingRoom = ({ onClose }: WaitingRoomProps) => {
   const nicknameRef = useRef("");
 
   useEffect(() => {
-    chatInputRef.current?.focus();
+    const handleChatInput = (e: KeyboardEvent) => {
+      if (
+        document.activeElement?.tagName === "INPUT" ||
+        document.activeElement?.tagName === "TEXTAREA"
+      )
+        return;
+      if (e.key === " ") {
+        e.preventDefault();
+        chatInputRef.current?.focus();
+      }
+    };
+
+    window.addEventListener("keydown", handleChatInput);
+
+    return () => {
+      window.removeEventListener("keydown", handleChatInput);
+    };
   }, []);
 
   useEffect(() => {
@@ -387,6 +403,7 @@ const WaitingRoom = ({ onClose }: WaitingRoomProps) => {
                 type="text"
                 ref={chatInputRef}
                 onKeyDown={(e) => e.key === "Enter" && handleSendMessage(e)}
+                placeholder="채팅을 입력하시려면 spacebar를 눌러주세요."
               />
               <button
                 className={styles.msgSendBtn}
