@@ -345,7 +345,7 @@ const WaitingRoom = ({ onClose }: WaitingRoomProps) => {
             >
               {isOwner
                 ? myReadyStatus
-                  ? "GAME START"
+                  ? "GAME START!"
                   : "READY?"
                 : myReadyStatus
                   ? "READY!"
