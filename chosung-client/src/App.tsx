@@ -115,7 +115,7 @@ const App = () => {
               <div>
                 {activeModal === "none" && (
                   <button className="enterRoom" onClick={handleEnterClick}>
-                    방 입장하기
+                    방 입장하기(Enter)
                   </button>
                 )}
               </div>
