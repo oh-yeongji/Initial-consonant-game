@@ -14,7 +14,7 @@ const WaitingRoom = ({ onClose }: WaitingRoomProps) => {
   const [users, setUsers] = useState<PlayerSnapshot[]>([]);
   const [myId, setMyId] = useState<string>("");
   const [showForceStart, setShowForceStart] = useState<boolean>(false);
-  const [state, setState] = useState<RoomStatus>("WAIT");
+  const [, setState] = useState<RoomStatus>("WAIT");
   const [chatList, setChatList] = useState<any[]>([]);
   const [startCountdown, setStartCountdown] = useState<number | null>(null);
   const [usedTimeChangeCount, setUsedTimeChangeCount] = useState<number>(0);
@@ -24,7 +24,7 @@ const WaitingRoom = ({ onClose }: WaitingRoomProps) => {
   const [isGameStarted, setIsGameStarted] = useState<boolean>(false);
   const [gameInitData, setGameInitData] = useState<any>(null);
   const [gameVersion, setGameVersion] = useState(0);
-
+  const [isFocused, setIsFocused] = useState(false);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const chatInputRef = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -403,7 +403,13 @@ const WaitingRoom = ({ onClose }: WaitingRoomProps) => {
                 type="text"
                 ref={chatInputRef}
                 onKeyDown={(e) => e.key === "Enter" && handleSendMessage(e)}
-                placeholder="채팅을 입력하시려면 spacebar를 눌러주세요."
+                placeholder={
+                  isFocused
+                    ? "메시지를 입력하세요."
+                    : "채팅을 입력하시려면 spacebar를 눌러주세요."
+                }
+                onFocus={() => setIsFocused(true)}
+                onBlur={() => setIsFocused(false)}
               />
               <button
                 className={styles.msgSendBtn}
