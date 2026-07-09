@@ -306,6 +306,7 @@
 }
 
 .playerStatusBtn {
+  position: relative;
   display: flex;
   height: 80px;
   background: #c0c0c0;
@@ -323,7 +324,38 @@
   border-right: 4px solid #404040;
   border-bottom: 4px solid #404040;
   color: #000080;
+  overflow: hidden;
   user-select: none;
+}
+
+.playerStatusBtn::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 300%;
+  height: 100%;
+  background: linear-gradient(
+    -45deg,
+    rgba(255, 255, 255, 0) 30%,
+    rgba(255, 255, 255, 0.75) 50%,
+    rgba(255, 255, 255, 0) 70%
+  );
+  pointer-events: none;
+  transform: translateX(-60%);
+}
+.playerStatusBtn.readyText::before {
+  animation: swipeForward 2s ease-out forwards;
+}
+
+.playerStatusBtn.ctrlText::before {
+  animation: swipeBackward 2s ease-out forwards;
+}
+
+.playerStatusBtn.disabled::before,
+.playerStatusBtn.active::before {
+  animation: none;
+  display: none;
 }
 
 .playerStatusBtn.active {
@@ -569,6 +601,24 @@ input {
 
 .closeBtn:disabled {
   visibility: hidden;
+}
+
+@keyframes swipeForward {
+  0% {
+    transform: translateX(-60%);
+  }
+  100% {
+    transform: translateX(60%);
+  }
+}
+
+@keyframes swipeBackward {
+  0% {
+    transform: translateX(60%);
+  }
+  100% {
+    transform: translateX(-60%);
+  }
 }
 
 @keyframes pulse {

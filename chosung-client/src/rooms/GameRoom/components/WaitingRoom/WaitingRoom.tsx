@@ -32,6 +32,7 @@ const WaitingRoom = ({ onClose }: WaitingRoomProps) => {
 
   const me = users?.find((u) => u.socketId === myId);
   const isOwner = me?.isOwner || false;
+  const [shortcut, setShortcut] = useState<string>("READY?");
   const myReadyStatus = me?.isReady || false;
 
   const isJoiningRef = useRef(false);
@@ -63,6 +64,17 @@ const WaitingRoom = ({ onClose }: WaitingRoomProps) => {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [chatList]);
+
+  useEffect(() => {
+    if (users.length < 2) {
+      setShortcut("READY?");
+      return;
+    }
+    const secondTimer = setInterval(() => {
+      setShortcut((prev) => (prev === "READY?" ? "CTRL+ ↵" : "READY?"));
+    }, 2000);
+    return () => clearInterval(secondTimer);
+  }, [users.length]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -370,16 +382,25 @@ const WaitingRoom = ({ onClose }: WaitingRoomProps) => {
               강제 시작
             </button>
             <div
-              className={`${styles.playerStatusBtn} ${myReadyStatus ? styles.active : ""} ${users.length < 2 ? styles.disabled : ""}`}
+              key={shortcut}
+              className={`${styles.playerStatusBtn} ${myReadyStatus ? styles.active : ""} ${users.length < 2 ? styles.disabled : ""} ${
+                users.length >= 2 && !myReadyStatus && shortcut.includes("CTRL")
+                  ? styles.ctrlText
+                  : users.length >= 2 &&
+                      !myReadyStatus &&
+                      shortcut.includes("READY?")
+                    ? styles.readyText
+                    : ""
+              }`}
               onClick={() => users.length >= 2 && socket.emit("toggle-ready")}
             >
               {isOwner
                 ? myReadyStatus
                   ? "GAME START!"
-                  : "READY?"
+                  : shortcut
                 : myReadyStatus
                   ? "READY!"
-                  : "READY?"}
+                  : shortcut}
             </div>
           </div>
 
