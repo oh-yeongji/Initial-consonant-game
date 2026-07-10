@@ -221,6 +221,14 @@ io.on("connection", (socket: Socket) => {
 
     room.players.delete(leaverId);
 
+    if (room.players.size > 0) {
+      io.to(roomId).emit("receive-chat", {
+        socketId: "system",
+        nickname: "",
+        message: `${leaver.nickname}님이 퇴장하였습니다.`,
+        type: "system",
+      });
+    }
     if (room.status === "COUNTDOWN") {
       if (room.readyNoticeTimer) {
         clearTimeout(room.readyNoticeTimer);
