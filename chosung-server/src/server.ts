@@ -27,6 +27,10 @@ app.use(
 );
 app.use(express.json());
 
+app.get("/", (req, res) => {
+  res.status(200).send("OK");
+});
+
 app.use("/api", gameRouter);
 
 const httpServer = createServer(app);
