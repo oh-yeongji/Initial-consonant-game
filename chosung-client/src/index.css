@@ -15,6 +15,7 @@ body {
   justify-content: center;
   width: 100%;
   height: 100%;
+  padding-bottom: 32px;
   position: fixed;
   top: 0;
   left: 0;
@@ -51,7 +52,14 @@ body {
   justify-content: center;
   background-color: #c0c0c0;
 }
-
+.titleGroup {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  /* margin-top: 10px; */
+  margin-bottom: 25px;
+}
 .title1 {
   color: #000080;
   font-size: 20px;
@@ -59,27 +67,22 @@ body {
   letter-spacing: 4px;
   font-family: Galmuri9, serif;
 }
-.app-identity {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  margin-top: 10px;
-  margin-bottom: 20px;
-}
-
 .title2 {
   font-family: "Batang", "바탕", serif;
   font-size: 4rem;
   font-weight: 900;
-  margin: 5px 0 20px 0;
   line-height: 1;
-  margin: 0;
+  margin: 5px 0 0 0;
 }
+
 .versionName {
+  position: absolute;
+  right: -60px;
+  bottom: 5px;
   font-size: 12px;
   font-family: Galmuri9;
   color: #555;
-  margin-left: 5px;
+  white-space: nowrap;
 }
 
 .enterRoom {
@@ -168,4 +171,68 @@ body {
   height: 100%;
   display: block;
   overflow-y: auto;
+}
+
+/* 태블릿 사이즈 */
+
+@media (max-width: 1024px) {
+  .main-window {
+    width: 460px;
+    transform: none;
+  }
+
+  .title2 {
+    font-size: 3.2rem;
+  }
+  .taskbar {
+    height: 28px;
+    padding: 2px 4px;
+  }
+}
+/* 휴대폰 사이즈 */
+
+@media (max-width: 768px) {
+  .desktop-screen {
+    padding-bottom: 26px;
+  }
+  .main-window {
+    width: 92%;
+    transform: none;
+    max-width: 360px;
+  }
+
+  .window-content {
+    padding: 20px 15px;
+  }
+
+  .title1 {
+    font-size: 16px;
+    letter-spacing: 2px;
+  }
+
+  .title2 {
+    font-size: 2.3rem;
+  }
+  .taskbar {
+    height: 28px;
+    padding: 2px 4px;
+  }
+
+  .systemStartBtn,
+  .system-tray {
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+  }
+  .systemStartBtn {
+    font-size: 11px;
+    padding: 0 6px;
+  }
+  .system-tray {
+    font-size: 11px;
+    padding: 0 6px;
+    margin-right: 0;
+  }
 }

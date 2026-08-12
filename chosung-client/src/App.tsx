@@ -109,11 +109,12 @@ const App = () => {
             />
 
             <div className="window-content">
-              <h2 className="title1">세기말</h2>
-              <div className="app-identity">
+              <div className="titleGroup">
+                <h2 className="title1">세기말</h2>
                 <h1 className="title2">자음 놀이</h1>
                 <span className="versionName">v 1.0.2</span>
               </div>
+
               <div>
                 {activeModal === "none" && (
                   <button className="enterRoom" onClick={handleEnterClick}>
