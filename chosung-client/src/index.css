@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&display=swap");
+
 html,
 body {
   margin: 0;
@@ -54,11 +56,15 @@ body {
 }
 .titleGroup {
   display: flex;
+  align-items: flex-end;
+  margin-bottom: 25px;
+  gap: 5px;
+}
+
+.titles {
+  display: flex;
   flex-direction: column;
   align-items: center;
-  position: relative;
-  /* margin-top: 10px; */
-  margin-bottom: 25px;
 }
 .title1 {
   color: #000080;
@@ -68,21 +74,20 @@ body {
   font-family: Galmuri9, serif;
 }
 .title2 {
-  font-family: "Batang", "바탕", serif;
+  font-family: "Batang", "바탕", serif, "Gowun Batang";
   font-size: 4rem;
   font-weight: 900;
   line-height: 1;
-  margin: 5px 0 0 0;
+  margin: 10px 0 0 0;
 }
 
 .versionName {
-  position: absolute;
-  right: -60px;
   bottom: 5px;
   font-size: 12px;
   font-family: Galmuri9;
   color: #555;
   white-space: nowrap;
+  margin-bottom: 8px;
 }
 
 .enterRoom {
@@ -174,7 +179,6 @@ body {
 }
 
 /* 태블릿 사이즈 */
-
 @media (max-width: 1024px) {
   .main-window {
     width: 460px;

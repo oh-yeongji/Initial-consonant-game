@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=Gowun+Batang:wght@400;700&display=swap");
+
 .header {
   display: flex;
   justify-content: space-between;
@@ -15,7 +17,7 @@
 .titleName {
   text-rendering: geometricPrecision;
   letter-spacing: -0.5px;
-  font-family: "바탕", "Batang", "AppleMyungjo", serif;
+  font-family: "Batang", "바탕", serif, "Gowun Batang";
   -webkit-font-smoothing: none;
   font-size: 14px;
   -moz-osx-font-smoothing: grayscale;

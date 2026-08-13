@@ -110,8 +110,10 @@ const App = () => {
 
             <div className="window-content">
               <div className="titleGroup">
-                <h2 className="title1">세기말</h2>
-                <h1 className="title2">자음 놀이</h1>
+                <div className="titles">
+                  <h2 className="title1">세기말</h2>
+                  <h1 className="title2">자음 놀이</h1>
+                </div>
                 <span className="versionName">v 1.0.2</span>
               </div>
 
