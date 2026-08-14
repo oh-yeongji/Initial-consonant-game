@@ -178,65 +178,111 @@ body {
   overflow-y: auto;
 }
 
-/* 태블릿 사이즈 */
-@media (max-width: 1024px) {
+/*  휴대폰 & 태블릿 세로 모드  */
+@media (max-width: 1024px) and (orientation: portrait) {
   .main-window {
-    width: 460px;
-    transform: none;
+    display: none;
   }
 
-  .title2 {
-    font-size: 3.2rem;
-  }
-  .taskbar {
-    height: 28px;
-    padding: 2px 4px;
+  .desktop-screen::after {
+    content: "기기를 가로로 회전해 주세요.";
+    white-space: pre-wrap;
+    text-align: center;
+    line-height: 1.6;
+    font-family: "Galmuri9", sans-serif;
+    font-size: 16px;
+    color: #000;
+    background-color: #c0c0c0;
+    padding: 24px 30px;
+    border-top: 2px solid #dfdfdf;
+    border-left: 2px solid #dfdfdf;
+    border-right: 2px solid #404040;
+    border-bottom: 2px solid #404040;
+    box-shadow: 3px 3px 0px rgba(0, 0, 0, 0.5);
   }
 }
-/* 휴대폰 사이즈 */
 
-@media (max-width: 768px) {
+/* 휴대폰 가로 모드 */
+@media (max-width: 1024px) and (max-height: 500px) and (orientation: landscape) {
   .desktop-screen {
     padding-bottom: 26px;
   }
+
   .main-window {
-    width: 92%;
+    width: 85%;
+    max-width: 420px;
     transform: none;
-    max-width: 360px;
   }
 
   .window-content {
-    padding: 20px 15px;
+    padding: 10px 15px;
   }
 
   .title1 {
-    font-size: 16px;
-    letter-spacing: 2px;
+    font-size: 14px;
   }
 
   .title2 {
-    font-size: 2.3rem;
+    font-size: 2.2rem;
   }
+
+  .enterRoom {
+    width: 220px;
+    height: 42px;
+    font-size: 1rem;
+    margin-top: 5px;
+  }
+
   .taskbar {
-    height: 28px;
+    height: 26px;
     padding: 2px 4px;
   }
 
   .systemStartBtn,
   .system-tray {
     height: 20px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-sizing: border-box;
-  }
-  .systemStartBtn {
     font-size: 11px;
-    padding: 0 6px;
   }
+}
+
+/* 태블릿 가로모드 */
+@media (max-width: 1024px) and (min-height: 501px) and (orientation: landscape) {
+  .desktop-screen {
+    padding-bottom: 28px;
+  }
+
+  .main-window {
+    width: 480px;
+    max-width: 90%;
+    transform: none;
+  }
+
+  .window-content {
+    padding: 20px 25px;
+  }
+
+  .title1 {
+    font-size: 18px;
+  }
+
+  .title2 {
+    font-size: 3.2rem;
+  }
+
+  .enterRoom {
+    width: 260px;
+    height: 52px;
+    font-size: 1.2rem;
+  }
+
+  .taskbar {
+    height: 28px;
+    padding: 2px 6px;
+  }
+
+  .systemStartBtn,
   .system-tray {
-    font-size: 11px;
-    padding: 0 6px;
-    margin-right: 0;
+    height: 22px;
+    font-size: 12px;
   }
 }
