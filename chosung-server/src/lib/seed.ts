@@ -1,57 +1,110 @@
 import fs from "fs";
 import path from "path";
+import mongoose from "mongoose";
+import * as XLSX from "xlsx";
 import { WordModel } from "../models/Word";
+import { extractTwoChosungs } from "../game/chosung";
 
-const CSV_FILE_NAME = "국립국어원_기본어휘.csv";
-const csvFilePath = path.join(process.cwd(), "src", "data", CSV_FILE_NAME);
+const MONGO_URI =
+  process.env.MONGO_URI || "mongodb://localhost:27017/consonant_game";
+const DATA_DIR_PATH = path.join(process.cwd(), "src", "data");
 
-export const seedWordsFromCSV = async () => {
-  if (!fs.existsSync(csvFilePath)) {
-    console.error(`[에러] 파일을 찾을 수 없음: ${csvFilePath}`);
+export const seedWordsFromXLSX = async () => {
+  if (!fs.existsSync(DATA_DIR_PATH)) {
+    console.error(`❌ [에러] 폴더를 찾을 수 없음: ${DATA_DIR_PATH}`);
     return;
   }
 
-  console.log("🚀 라이브러리 없이 순수 JS로 데이터 임포트 시작...");
+  // await WordModel.deleteMany({});
+  // console.log("🗑️ 기존 데이터 삭제 완료");
 
-  const fileContent = fs.readFileSync(csvFilePath, "utf-8");
-  const lines = fileContent.split("\n");
+  const files = fs.readdirSync(DATA_DIR_PATH).filter((file) => {
+    const lower = file.toLowerCase();
+    return lower.endsWith(".xlsx") || lower.endsWith(".xls");
+  });
+
+  console.log(`📁 감지된 파일 목록:`, files);
+
+  if (files.length === 0) {
+    console.error(
+      "❌ [에러] src/data 폴더 안에 .xls 또는 .xlsx 파일이 없습니다.",
+    );
+    return;
+  }
+
   const results: any[] = [];
 
-  for (let i = 1; i < lines.length; i++) {
-    const line = lines[i].trim();
-    if (!line) continue;
+  for (const file of files) {
+    const filePath = path.join(DATA_DIR_PATH, file);
+    console.log(`📄 파일 읽는 중: ${file}`);
+    const workbook = XLSX.readFile(filePath);
 
-    const columns = line.split(",");
-    const wordRaw = columns[2];
-    const level = columns[0];
+    for (const sheetName of workbook.SheetNames) {
+      const rows: any[] = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName]);
 
-    if (wordRaw) {
-      const cleanWord = wordRaw
-        .split("/")[0]
-        .replace(/[0-9]/g, "")
-        .replace(/-/g, "")
-        .trim();
+      for (const row of rows) {
+        const wordRaw = row["어휘"] ? String(row["어휘"]) : "";
+        const pos = row["품사"] ? String(row["품사"]) : "";
 
-      if (cleanWord.length === 2) {
-        results.push({
-          word: cleanWord,
-          level: level,
-          exist: true,
-          original: wordRaw,
-          definition: "",
-        });
+        if (!wordRaw) continue;
+
+        const cleanWord = wordRaw
+          .split("/")[0]
+          .replace(/[^가-힣]/g, "")
+          .trim();
+
+        if (cleanWord.length === 2 && (!pos || pos.includes("명사"))) {
+          const chosungTuple = extractTwoChosungs(cleanWord);
+          if (!chosungTuple) continue;
+
+          results.push({
+            word: cleanWord,
+            initials: chosungTuple.join(""),
+            length: cleanWord.length,
+            level: row["난이도"] || "보통",
+            exist: true,
+            original: wordRaw,
+            definition: row["뜻풀이"] || "",
+          });
+        }
       }
     }
   }
 
-  try {
-    const uniqueResults = Array.from(
-      new Map(results.map((item) => [item.word, item])).values(),
-    );
-    console.log(`✨ 최종 단어 수: ${uniqueResults.length}개`);
+  const uniqueResults = Array.from(
+    new Map(results.map((item) => [item.word, item])).values(),
+  );
+
+  if (uniqueResults.length > 0) {
     await WordModel.insertMany(uniqueResults, { ordered: false });
-    console.log("✅ DB 저장 완료!");
-  } catch (err) {
-    console.error("DB 저장 중 오류:", err);
+    console.log("✅ DB 저장 성공!");
+  } else {
+    console.warn(
+      "⚠️ 추출된 단어가 0개입니다. 엑셀의 열 이름이 '어휘', '품사'가 맞는지 확인해 주세요.",
+    );
   }
 };
+
+const run = async () => {
+  try {
+    console.log("🔌 MongoDB 연결 시도 중...");
+    await mongoose.connect(MONGO_URI);
+    console.log("✅ MongoDB 연결 완료!");
+
+    await seedWordsFromXLSX();
+
+    const totalCount = await WordModel.countDocuments();
+
+    console.log("\n==========================================");
+    console.log(`📊 DB 내 총 단어 수: ${totalCount.toLocaleString()}개`);
+    console.log("==========================================\n");
+  } catch (err) {
+    console.error("❌ 실행 과정 중 에러 발생:", err);
+  } finally {
+    await mongoose.connection.close();
+    console.log("🔌 DB 연결 종료.");
+    process.exit(0);
+  }
+};
+
+run();
