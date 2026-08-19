@@ -12,6 +12,7 @@ import { getRandomChosungPair } from "./game/chosung";
 import { validateWord } from "./game/gameService";
 import { MAX_TIME_CHANGE_COUNT } from "./types";
 import type { Room, UsedWord, Player, PlayerSnapshot } from "./types";
+import { runComparison } from "./lib/benchmarkApiVsDb";
 const app = express();
 
 app.use(
@@ -31,20 +32,14 @@ app.get("/", (req, res) => {
   res.status(200).send("OK");
 });
 
+app.get("/api/benchmark-test", async (req, res) => {
+  const result = await runComparison();
+  res.send(result);
+});
+
 app.use("/api", gameRouter);
 
 const httpServer = createServer(app);
-
-connectDB().then(async () => {
-  console.log("seed넣기성공");
-  // seedWordsFromCSV();
-  console.log("DB 초기화 시작");
-
-  // await WordModel.deleteMany({});
-  await Chat.deleteMany({});
-
-  console.log("DB 초기화 완료");
-});
 
 const io = new Server(httpServer, {
   cors: {
@@ -636,7 +631,20 @@ io.on("connection", (socket: Socket) => {
   });
 });
 
-const PORT = process.env.PORT || 3000;
-httpServer.listen(PORT, () => {
-  console.log(`Server running on ${PORT}`);
-});
+const startServer = async () => {
+  try {
+    await connectDB();
+    console.log("DB 초기화 시작");
+    await Chat.deleteMany({});
+    console.log("DB 초기화 완료");
+
+    const PORT = process.env.PORT || 3000;
+    httpServer.listen(PORT, () => {
+      console.log(`🚀 Server running on port ${PORT}`);
+    });
+  } catch (err) {
+    console.error("❌ DB 연결 실패로 서버를 시작하지 못했습니다:", err);
+  }
+};
+
+startServer();
