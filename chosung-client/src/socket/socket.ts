@@ -1,10 +1,10 @@
-  import { io } from "socket.io-client";
+import { io } from "socket.io-client";
 
 const isDev = import.meta.env.DEV;
-const SOCKET_URL  = isDev ? "/" : "https://chosung-game.onrender.com";
+const SOCKET_URL = isDev ? "/" : "https://chosung-game.onrender.com";
 
-    export const socket = io(SOCKET_URL , {
-    transports: ["polling", "websocket"],
-    withCredentials: true,
-    autoConnect: false,
-  });
+export const socket = io(SOCKET_URL, {
+  transports: ["websocket"],
+  withCredentials: true,
+  autoConnect: false,
+});

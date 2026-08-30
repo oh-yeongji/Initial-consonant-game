@@ -52,7 +52,7 @@ const io = new Server(httpServer, {
     credentials: true,
   },
   allowEIO3: true,
-  transports: ["polling", "websocket"],
+  transports: ["websocket", "polling"],
 });
 
 const rooms = new Map<string, Room>();
