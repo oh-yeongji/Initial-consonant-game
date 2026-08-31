@@ -77,8 +77,18 @@ export const seedWordsFromXLSX = async () => {
   );
 
   if (uniqueResults.length > 0) {
-    await WordModel.insertMany(uniqueResults, { ordered: false });
-    console.log("✅ DB 저장 성공!");
+    try {
+      await WordModel.insertMany(uniqueResults, { ordered: false });
+      console.log("✅ DB 저장 성공!");
+    } catch (err: any) {
+      if (err.code === 11000 || err.writeErrors) {
+        console.log(
+          "⚠️ 일부 중복된 단어를 제외하고 새로 추가된 단어가 저장되었습니다.",
+        );
+      } else {
+        throw err;
+      }
+    }
   } else {
     console.warn(
       "⚠️ 추출된 단어가 0개입니다. 엑셀의 열 이름이 '어휘', '품사'가 맞는지 확인해 주세요.",
