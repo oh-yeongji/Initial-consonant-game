@@ -74,7 +74,6 @@ const App = () => {
   };
 
   useEffect(() => {
-    socket.connect();
     socket.on("connect", () => setConnected(true));
     socket.on("disconnect", () => setConnected(false));
     socket.on("room-wait", () => setStatus("WAIT"));
