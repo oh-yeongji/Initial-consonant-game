@@ -1,3 +1,5 @@
+import dotenv from "dotenv";
+dotenv.config();
 import fs from "fs";
 import path from "path";
 import mongoose from "mongoose";
@@ -5,8 +7,7 @@ import * as XLSX from "xlsx";
 import { WordModel } from "../models/Word";
 import { extractTwoChosungs } from "../game/chosung";
 
-const MONGO_URI =
-  process.env.MONGO_URI || "mongodb://localhost:27017/consonant_game";
+const MONGODB_URI = process.env.MONGODB_URI;
 const DATA_DIR_PATH = path.join(process.cwd(), "src", "data");
 
 export const seedWordsFromXLSX = async () => {
@@ -87,8 +88,11 @@ export const seedWordsFromXLSX = async () => {
 
 const run = async () => {
   try {
+    if (!MONGODB_URI) {
+      throw new Error("❌ .env 파일에 MONGODB_URI가 설정되지 않았습니다.");
+    }
     console.log("🔌 MongoDB 연결 시도 중...");
-    await mongoose.connect(MONGO_URI);
+    await mongoose.connect(MONGODB_URI);
     console.log("✅ MongoDB 연결 완료!");
 
     await seedWordsFromXLSX();
