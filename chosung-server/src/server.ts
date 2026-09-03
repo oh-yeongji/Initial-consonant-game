@@ -10,11 +10,11 @@ import { WordModel } from "./models/Word";
 import { Chat } from "./models/Chat";
 import { randomUUID } from "crypto";
 import gameRouter from "./routes/game.routes";
+import benchmarkRouter from "./routes/benchmark";
 import { getRandomChosungPair } from "./game/chosung";
 import { validateWord } from "./game/gameService";
 import { MAX_TIME_CHANGE_COUNT } from "./types";
 import type { Room, UsedWord, Player, PlayerSnapshot } from "./types";
-import { runComparison } from "./lib/benchmarkApiVsDb";
 const app = express();
 
 app.use(
@@ -29,14 +29,10 @@ app.use(
   }),
 );
 app.use(express.json());
+app.use(benchmarkRouter);
 
 app.get("/", (req, res) => {
   res.status(200).send("OK");
-});
-
-app.get("/api/benchmark-test", async (req, res) => {
-  const result = await runComparison();
-  res.send(result);
 });
 
 app.use("/api", gameRouter);

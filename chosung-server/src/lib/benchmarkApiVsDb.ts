@@ -1,8 +1,11 @@
-import mongoose from "mongoose";
 import { performance } from "perf_hooks";
+import dotenv from "dotenv";
+import mongoose from "mongoose";
 import { WordModel } from "../models/Word";
 
-const API_KEY = process.env.KOREAN_DICT_API_KEY;
+dotenv.config();
+
+const API_KEY = process.env.STDICT_API_KEY;
 
 const TEST_WORDS = [
   "사과",
@@ -107,9 +110,38 @@ const TEST_WORDS = [
   "배구",
 ];
 
+export const checkDataExists = async () => {
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      console.error(
+        "❌ Mongoose가 DB에 연결되어 있지 않은 상태입니다. (readyState !== 1)",
+      );
+      return false;
+    }
+
+    const count = await WordModel.countDocuments();
+    console.log(`📦 현재 DB에 저장된 단어 개수: ${count}개`);
+
+    if (count === 0) {
+      console.log("⚠️ DB는 연결되었지만 데이터가 비어있습니다!");
+      return false;
+    }
+
+    const sample = await WordModel.findOne({ word: "사과" }).lean();
+    console.log("🍎 Sample 데이터 확인:", sample);
+
+    return true;
+  } catch (err) {
+    console.error("❌ DB 데이터 확인 중 에러 발생:", err);
+    return false;
+  }
+};
+
 const fetchFromApi = async (word: string) => {
   try {
-    const url = `https://stdict.korean.go.kr/api/search.do?key=${API_KEY}&q=${encodeURIComponent(word.trim())}&req_type=json`;
+    const url = `https://stdict.korean.go.kr/api/search.do?key=${API_KEY}&q=${encodeURIComponent(
+      word.trim(),
+    )}&req_type=json`;
     const response = await fetch(url);
 
     if (!response.ok) return null;
@@ -125,9 +157,16 @@ const fetchFromDb = async (word: string) => {
 
 export const runComparison = async () => {
   try {
-    console.log(
-      "🔌 DB 연결 완료. 2글자 단어 100개 기준 벤치마크를 시작합니다...\n",
-    );
+    console.log("🔌 DB 데이터 검증을 시작합니다...\n");
+
+    const hasData = await checkDataExists();
+    if (!hasData) {
+      return {
+        error: "DB에 데이터가 없거나 DB 연결 에러로 벤치마크를 중단합니다.",
+      };
+    }
+
+    console.log("\n🚀 2글자 단어 100개 기준 벤치마크를 시작합니다...\n");
 
     const apiTimes: number[] = [];
     const dbTimes: number[] = [];
